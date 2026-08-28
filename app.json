@@ -20,6 +20,18 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "68a68579-9af2-409b-8871-508e6166d70a"
+      }
+    },
+    "owner": "ridgomez99",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/68a68579-9af2-409b-8871-508e6166d70a"
     }
   }
 }
