@@ -6,6 +6,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -46,6 +47,7 @@ type StatusResponse = {
   eta_text?: string | null;
   eta_ok?: boolean | null;
   threshold_text?: string | null;
+  threshold_pct?: number | null;
   last_ac_text?: string | null;
   remain_duration?: string | null;
   ports?: { name: string; watts: number }[];
@@ -203,6 +205,9 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [live, setLive] = useState<'ok' | 'stale'>('stale');
   const [updatedLabel, setUpdatedLabel] = useState('Conectando…');
+  const [alertaInput, setAlertaInput] = useState('');
+  const [alertaMsg, setAlertaMsg] = useState('');
+  const alertaFocused = useRef(false);
   const lastSuccessAt = useRef<number | null>(null);
 
   const loadStatus = useCallback(async () => {
@@ -212,10 +217,33 @@ export default function App() {
       setStatus(data);
       setLive(data.ready ? 'ok' : 'stale');
       if (data.ready) lastSuccessAt.current = Date.now();
+      if (data.threshold_pct != null && !alertaFocused.current) {
+        setAlertaInput(String(data.threshold_pct));
+      }
     } catch {
       setLive('stale');
     }
   }, []);
+
+  const saveAlerta = useCallback(async () => {
+    const pct = parseInt(alertaInput, 10);
+    if (isNaN(pct) || pct < 0 || pct > 100) {
+      setAlertaMsg('Poné un número entre 0 y 100');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/alerta`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threshold_pct: pct }),
+      });
+      if (!res.ok) throw new Error();
+      setAlertaMsg('Guardado ✓');
+      setTimeout(() => setAlertaMsg(''), 2000);
+    } catch {
+      setAlertaMsg('No se pudo guardar');
+    }
+  }, [alertaInput]);
 
   const loadCargas = useCallback(async () => {
     try {
@@ -416,6 +444,25 @@ export default function App() {
             </View>
           )}
 
+          <View style={styles.devices}>
+            <Text style={styles.sectionTitle}>Alerta de batería baja</Text>
+            <View style={styles.alertaRow}>
+              <TextInput
+                style={styles.alertaInput}
+                keyboardType="number-pad"
+                value={alertaInput}
+                onFocus={() => { alertaFocused.current = true; }}
+                onBlur={() => { alertaFocused.current = false; }}
+                onChangeText={setAlertaInput}
+              />
+              <Text style={styles.dimText}>%</Text>
+              <Pressable style={styles.alertaSaveBtn} onPress={saveAlerta}>
+                <Text style={styles.alertaSaveText}>Guardar</Text>
+              </Pressable>
+              {alertaMsg ? <Text style={styles.alertaMsg}>{alertaMsg}</Text> : null}
+            </View>
+          </View>
+
           <View style={styles.updatedRow}>
             <View style={[styles.liveDot, { backgroundColor: live === 'ok' ? COLORS.green : '#ef4444' }]} />
             <Text style={styles.updatedText}>{updatedLabel}</Text>
@@ -497,6 +544,16 @@ const styles = StyleSheet.create({
   deviceBtnOff: { backgroundColor: COLORS.card, borderColor: COLORS.border },
   deviceBtnName: { fontSize: 14, color: '#cbd5e1' },
   deviceState: { fontWeight: '700', fontSize: 12, letterSpacing: 0.5 },
+
+  alertaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
+  alertaInput: {
+    width: 60, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8,
+    borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card,
+    color: COLORS.text, fontSize: 15,
+  },
+  alertaSaveBtn: { backgroundColor: '#3b82f6', paddingVertical: 6, paddingHorizontal: 14, borderRadius: 8 },
+  alertaSaveText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  alertaMsg: { fontSize: 12, color: COLORS.green },
 
   updatedRow: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
   liveDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
