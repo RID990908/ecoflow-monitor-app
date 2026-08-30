@@ -192,10 +192,15 @@ function BatteryRow({
     <View style={styles.batteryRow}>
       <View style={styles.batteryRowName}>
         <BatteryIcon state={flow.state} />
-        <Text style={styles.batteryRowNameText}>
-          {label} — {labelText}
-        </Text>
-        {remain ? <Text style={[styles.batteryRowRemain, { color: remainColor }]}>{remain.text}</Text> : null}
+        <View>
+          <Text style={styles.batteryRowNameText}>{label}</Text>
+          <View style={styles.batteryRowSubRow}>
+            <Text style={styles.batteryRowSubText}>{labelText}</Text>
+            {remain ? (
+              <Text style={[styles.batteryRowRemain, { color: remainColor }]}> · {remain.text}</Text>
+            ) : null}
+          </View>
+        </View>
       </View>
       <Text style={[styles.batteryRowVal, { color: flow.state === 'neutral' ? COLORS.text : flowColor(flow.state) }]}>
         {pct.toFixed(1)}%{flow.suffix}
@@ -493,6 +498,8 @@ const styles = StyleSheet.create({
   },
   batteryRowName: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   batteryRowNameText: { fontSize: 14, color: '#cbd5e1' },
+  batteryRowSubRow: { flexDirection: 'row', alignItems: 'center' },
+  batteryRowSubText: { fontSize: 12, color: COLORS.faint },
   batteryRowRemain: { fontSize: 12, fontWeight: '600' },
   batteryRowVal: { fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'] },
 
