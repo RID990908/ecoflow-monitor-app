@@ -40,6 +40,8 @@ type StatusResponse = {
   ac_w?: number;
   delta2_net_w?: number | null;
   extra_net_w?: number | null;
+  delta2_remain?: { charging: boolean; text: string } | null;
+  extra_remain?: { charging: boolean; text: string } | null;
   has_ac?: boolean;
   in_w?: number;
   out_w?: number;
@@ -172,9 +174,20 @@ function IconCircle({
   );
 }
 
-function BatteryRow({ label, pct, netW }: { label: string; pct: number; netW: number | null | undefined }) {
+function BatteryRow({
+  label,
+  pct,
+  netW,
+  remain,
+}: {
+  label: string;
+  pct: number;
+  netW: number | null | undefined;
+  remain?: { charging: boolean; text: string } | null;
+}) {
   const flow = batteryFlow(netW);
   const labelText = flow.state === 'charging' ? 'Carga' : flow.state === 'discharging' ? 'Descarga' : 'Carga';
+  const remainColor = remain ? (remain.charging ? COLORS.green : COLORS.red) : undefined;
   return (
     <View style={styles.batteryRow}>
       <View style={styles.batteryRowName}>
@@ -182,6 +195,7 @@ function BatteryRow({ label, pct, netW }: { label: string; pct: number; netW: nu
         <Text style={styles.batteryRowNameText}>
           {label} — {labelText}
         </Text>
+        {remain ? <Text style={[styles.batteryRowRemain, { color: remainColor }]}>{remain.text}</Text> : null}
       </View>
       <Text style={[styles.batteryRowVal, { color: flow.state === 'neutral' ? COLORS.text : flowColor(flow.state) }]}>
         {pct.toFixed(1)}%{flow.suffix}
@@ -365,8 +379,12 @@ export default function App() {
 
               {/* Baterías */}
               <View style={styles.batteries}>
-                {status.soc_delta2 != null && <BatteryRow label="Delta 2" pct={status.soc_delta2} netW={status.delta2_net_w} />}
-                {status.soc_extra != null && <BatteryRow label="Batería Extra" pct={status.soc_extra} netW={status.extra_net_w} />}
+                {status.soc_delta2 != null && (
+                  <BatteryRow label="Delta 2" pct={status.soc_delta2} netW={status.delta2_net_w} remain={status.delta2_remain} />
+                )}
+                {status.soc_extra != null && (
+                  <BatteryRow label="Batería Extra" pct={status.soc_extra} netW={status.extra_net_w} remain={status.extra_remain} />
+                )}
               </View>
 
               {/* Puertos */}
@@ -475,6 +493,7 @@ const styles = StyleSheet.create({
   },
   batteryRowName: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   batteryRowNameText: { fontSize: 14, color: '#cbd5e1' },
+  batteryRowRemain: { fontSize: 12, fontWeight: '600' },
   batteryRowVal: { fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'] },
 
   ports: { width: '100%', maxWidth: 380, marginTop: 14 },
