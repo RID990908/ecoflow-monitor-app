@@ -92,7 +92,15 @@ type StatusResponse = {
 };
 
 type CargasResponse = { message?: string; error?: string };
-type Device = { key: string; label: string; emoji: string; watts: number; on: boolean; charged?: boolean | null };
+type Device = {
+  key: string;
+  label: string;
+  emoji: string;
+  watts: number;
+  on: boolean;
+  charged?: boolean | null;
+  fits?: boolean | null;
+};
 type DevicesResponse = { devices: Device[] };
 
 type FlowState = 'neutral' | 'charging' | 'discharging';
@@ -791,6 +799,7 @@ export default function App() {
           style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}
         >
           <Text style={styles.deviceBtnName}>
+            {d.fits != null ? (d.fits ? '🟢 ' : '🔴 ') : ''}
             {d.emoji} {d.label} · {d.watts}W
           </Text>
           <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>{d.on ? 'ON' : 'OFF'}</Text>
