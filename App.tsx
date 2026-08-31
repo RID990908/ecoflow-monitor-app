@@ -482,11 +482,11 @@ export default function App() {
               <View style={styles.flowBottomWrap}>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectors}>
                   <Path d="M 50,122 L 50,75 Q 50,65 60,65 L 140,65 Q 150,65 150,55 L 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 50,122 L 50,75 Q 50,65 60,65 L 140,65 Q 150,65 150,55 L 150,8" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acOutActive ? 1 : 0} />
+                  <AnimatedPath d="M 50,122 L 50,75 Q 50,65 60,65 L 140,65 Q 150,65 150,55 L 150,8" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acOutActive ? 1 : 0} />
                   <Path d="M 150,122 L 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 150,122 L 150,8" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={extraInActive ? 1 : 0} />
+                  <AnimatedPath d="M 150,122 L 150,8" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={extraInActive ? 1 : 0} />
                   <Path d="M 250,122 L 250,75 Q 250,65 240,65 L 160,65 Q 150,65 150,55 L 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 250,122 L 250,75 Q 250,65 240,65 L 160,65 Q 150,65 150,55 L 150,8" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={usbActive ? 1 : 0} />
+                  <AnimatedPath d="M 250,122 L 250,75 Q 250,65 240,65 L 160,65 Q 150,65 150,55 L 150,8" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={usbActive ? 1 : 0} />
                 </Svg>
                 <View style={styles.iconsRowBottom}>
                   <IconCircle emoji="🔌" state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
