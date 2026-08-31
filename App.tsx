@@ -252,10 +252,19 @@ function LateralHook({
   discharging: boolean;
   dashOffset: Animated.AnimatedInterpolation<string | number>;
 }) {
+  // El lado izquierdo usa coordenadas X negativas (el gancho sale hacia la
+  // izquierda del anillo). Antes ambos lados compartían el mismo viewBox
+  // "0 0 64 40" y dependían de overflow:'visible' para que el contenido
+  // negativo "se viera" fuera de los límites del box — funciona en web
+  // (react-native-web) pero no se puede confiar en eso en nativo. Ahora el
+  // viewBox y la posición del propio Svg coinciden exactamente con el rango
+  // de coordenadas que cada lado realmente usa, sin depender de overflow.
   const chargePath = side === 'right' ? 'M 0,0 L 54,0 Q 62,0 62,8 L 62,38' : 'M 0,0 L -54,0 Q -62,0 -62,8 L -62,38';
   const dischargePath = side === 'right' ? 'M 62,38 L 62,8 Q 62,0 54,0 L 0,0' : 'M -62,38 L -62,8 Q -62,0 -54,0 L 0,0';
+  const viewBox = side === 'right' ? '0 0 64 40' : '-64 0 64 40';
+  const svgStyle = side === 'right' ? styles.lateralSvg : [styles.lateralSvg, styles.lateralSvgLeft];
   return (
-    <Svg width={64} height={40} viewBox="0 0 64 40" style={styles.lateralSvg}>
+    <Svg width={64} height={40} viewBox={viewBox} style={svgStyle}>
       <Path d={chargePath} stroke="#232c36" strokeWidth={2} fill="none" />
       <AnimatedPath
         d={chargePath}
@@ -623,26 +632,30 @@ export default function App() {
                 </View>
               </View>
 
-              {/* ETA box */}
-              {status.eta_text || status.goal_label ? (
-                <View style={styles.etaBox}>
-                  {status.eta_text ? (
-                    <>
-                      <Text style={[styles.etaMain, { color: status.eta_ok ? COLORS.green : COLORS.red }]}>{status.eta_text}</Text>
-                      <View style={styles.etaSubRow}>
-                        {status.threshold_text ? <BatteryIcon state="discharging" size={14} /> : null}
-                        <Text style={styles.etaSubText}>{status.threshold_text || status.last_ac_text || ''}</Text>
-                      </View>
-                    </>
-                  ) : null}
-                  {status.goal_label ? (
-                    <Text style={[styles.etaGoal, { color: status.goal_met ? COLORS.green : COLORS.red }]}>
-                      {status.goal_met ? '✅' : '⚠️'} Meta: {status.goal_floor}% para {status.goal_label} (proyectás {status.goal_projected?.toFixed(0)}%)
-                    </Text>
-                  ) : null}
-                </View>
-              ) : null}
     </>
+  ) : null;
+
+  // ETA box ("Llena a las...") extraída como sección propia (antes vivía
+  // adentro de centerFlow) para poder reubicarla en la columna izquierda,
+  // debajo de "Gestión de cargas", en el layout de iPad — en mobile se
+  // sigue renderizando justo después de centerFlow, mismo lugar de siempre.
+  const etaBoxSection = status && status.ready && (status.eta_text || status.goal_label) ? (
+    <View style={styles.etaBox}>
+      {status.eta_text ? (
+        <>
+          <Text style={[styles.etaMain, { color: status.eta_ok ? COLORS.green : COLORS.red }]}>{status.eta_text}</Text>
+          <View style={styles.etaSubRow}>
+            {status.threshold_text ? <BatteryIcon state="discharging" size={14} /> : null}
+            <Text style={styles.etaSubText}>{status.threshold_text || status.last_ac_text || ''}</Text>
+          </View>
+        </>
+      ) : null}
+      {status.goal_label ? (
+        <Text style={[styles.etaGoal, { color: status.goal_met ? COLORS.green : COLORS.red }]}>
+          {status.goal_met ? '✅' : '⚠️'} Meta: {status.goal_floor}% para {status.goal_label} (proyectás {status.goal_projected?.toFixed(0)}%)
+        </Text>
+      ) : null}
+    </View>
   ) : null;
 
   const batteriesSection = status && status.ready ? (
@@ -741,6 +754,7 @@ export default function App() {
               <View style={styles.tabletColLeft}>
                 {batteriesSection}
                 {cargasSection}
+                {etaBoxSection}
               </View>
               <View style={styles.tabletColCenter}>
                 {notReadyCard}
@@ -754,10 +768,13 @@ export default function App() {
           ) : (
             // Layout mobile (< TABLET_BREAKPOINT): una sola columna, mismo
             // orden y mismos componentes que antes de este cambio — sin
-            // modificaciones de comportamiento.
+            // modificaciones de comportamiento (etaBoxSection ahora está
+            // separada de centerFlow pero se renderiza justo después, mismo
+            // lugar visual de siempre).
             <>
               {notReadyCard}
               {centerFlow}
+              {etaBoxSection}
               {batteriesSection}
               {cargasSection}
               {estadoCargaSection}
@@ -823,6 +840,11 @@ const styles = StyleSheet.create({
   lateralOverlayRight: { position: 'absolute', left: 240, top: 120, width: 0, height: 0 },
   lateralOverlayLeft: { position: 'absolute', left: 0, top: 120, width: 0, height: 0 },
   lateralSvg: { overflow: 'visible' },
+  // Con viewBox "-64 0 64 40" el contenido (x entre -62 y 0) queda pegado
+  // al borde DERECHO de la caja renderizada del Svg — sin mover la caja,
+  // el gancho se vería 64px más a la derecha de lo que corresponde. Se
+  // corre la caja misma 64px a la izquierda para compensar.
+  lateralSvgLeft: { marginLeft: -64 },
   lateralIconRight: { position: 'absolute', left: 34, top: 18, width: 56, alignItems: 'center' },
   lateralIconLeft: { position: 'absolute', left: -90, top: 18, width: 56, alignItems: 'center' },
   lateralIconCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
