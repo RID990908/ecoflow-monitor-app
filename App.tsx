@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
+  Animated,
+  Easing,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -11,6 +14,11 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import * as Updates from 'expo-updates';
+
+// react-native-svg no trae Animated.createAnimatedComponent aplicado a Path
+// por defecto; se arma acá porque no hay reanimated como dependencia (ver
+// package.json) — se anima strokeDashoffset con la Animated API nativa de RN.
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 const API_BASE = 'https://ecoflow-monitor-production.up.railway.app';
 
@@ -59,6 +67,7 @@ type StatusResponse = {
   updated_at?: string;
   ac_out_w: number;
   extra_in_w: number;
+  extra_out_w: number;
   usb_out_w: number;
 };
 
@@ -103,6 +112,20 @@ function UsbIcon({ color = COLORS.dim }: { color?: string }) {
   return (
     <Svg width={18} height={9} viewBox="0 0 24 12">
       <Rect x={1} y={1} width={22} height={10} rx={5} fill="none" stroke={color} strokeWidth={2} />
+    </Svg>
+  );
+}
+
+// Puerto USB estilizado para el nodo "USB" de la fila inferior — mismo
+// patrón de composición que BatteryIcon (rect outline + nub), para no
+// reusar el emoji 🔌 del nodo "CA" (eran ambiguos, mismo ícono para dos
+// cosas distintas).
+function UsbPortIcon({ color, size = 22 }: { color: string; size?: number }) {
+  const w = size * (28 / 16);
+  return (
+    <Svg width={w} height={size} viewBox="0 0 28 16">
+      <Rect x={2} y={3} width={20} height={10} rx={2} fill="none" stroke={color} strokeWidth={2} />
+      <Rect x={22} y={6.5} width={4} height={3} fill={color} />
     </Svg>
   );
 }
@@ -165,12 +188,14 @@ function PercentRing({ pct, color, size = 240 }: { pct: number; color: string; s
 
 function IconCircle({
   emoji,
+  icon,
   state,
   watts,
   dirLabel,
   name,
 }: {
-  emoji: string;
+  emoji?: string;
+  icon?: ReactNode;
   state: FlowState;
   watts: string;
   dirLabel?: string;
@@ -181,7 +206,7 @@ function IconCircle({
   return (
     <View style={styles.iconItem}>
       <View style={[styles.iconCircle, { backgroundColor: bg }]}>
-        <Text style={{ fontSize: 22 }}>{emoji}</Text>
+        {icon ?? <Text style={{ fontSize: 22 }}>{emoji}</Text>}
       </View>
       <Text style={styles.iconWatts}>{watts}</Text>
       {dirLabel ? <Text style={[styles.iconDir, { color: dirColor }]}>{dirLabel}</Text> : <Text style={styles.iconDir}> </Text>}
@@ -239,6 +264,26 @@ export default function App() {
   const [live, setLive] = useState<'ok' | 'stale'>('stale');
   const [updatedLabel, setUpdatedLabel] = useState('Conectando…');
   const lastSuccessAt = useRef<number | null>(null);
+
+  // Offset animado compartido para el "flujo" de las líneas conectoras
+  // (dash que viaja por el path) — un solo loop, reusado por todos los
+  // overlays; cada uno se prende/apaga por separado según su wattage.
+  // useNativeDriver:false porque strokeDashoffset no es soportado por el
+  // driver nativo de RN.
+  const flowAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(flowAnim, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [flowAnim]);
+  const flowDashOffset = flowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -16] });
 
   // Por default expo-updates solo baja el update nuevo en segundo plano y lo
   // aplica en el SIGUIENTE arranque en frío (no en el actual) — así que un
@@ -341,8 +386,18 @@ export default function App() {
   const pct = status?.percent ?? 0;
   const ringColor = pct <= 10 ? COLORS.red : pct <= 20 ? COLORS.yellow : COLORS.green;
   const acFlow: FlowState = status?.has_ac ? 'charging' : 'neutral';
-  const extraFlow = batteryFlow(status?.extra_net_w);
+  // Nodo "Extra" (arriba): SIEMPRE descarga (extra_out_w), nunca neto — la
+  // carga de la batería extra se ve en la fila de abajo (Batería/extra_in_w).
+  const extraOutW = status?.extra_out_w ?? 0;
+  const extraTopActive = extraOutW > 5;
   const solarFlow: FlowState = (status?.pv_w ?? 0) > 5 ? 'charging' : 'neutral';
+
+  // Wattage actual de cada nodo -> decide si su línea conectora se anima.
+  const acTopActive = (status?.ac_w ?? 0) > 5;
+  const solarActive = (status?.pv_w ?? 0) > 5;
+  const acOutActive = (status?.ac_out_w ?? 0) > 5;
+  const extraInActive = (status?.extra_in_w ?? 0) > 5;
+  const usbActive = (status?.usb_out_w ?? 0) > 5;
 
   return (
     <SafeAreaProvider>
@@ -384,17 +439,33 @@ export default function App() {
                 </View>
               </View>
 
-              {/* icons-row: AC / Extra / Solar */}
-              <View style={styles.iconsRow}>
-                <IconCircle emoji="🔌" state={acFlow} watts={`${status.ac_w ?? 0} W`} dirLabel={status.has_ac ? 'Sí' : undefined} name="AC" />
-                <IconCircle
-                  emoji="🔋"
-                  state={extraFlow.state}
-                  watts={`${status.extra_net_w == null ? '--' : Math.abs(status.extra_net_w)} W`}
-                  dirLabel={extraFlow.state === 'charging' ? '↑ carga' : extraFlow.state === 'discharging' ? '↓ descarga' : undefined}
-                  name="Extra"
-                />
-                <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
+              {/* GEOMETRY SPEC (top, mirrored): sdd/power-flow-bottom-nodes/design
+                  §4 — viewBox 0 0 300 130, hub (150,122) at the ring's top
+                  edge, nodes x=50/150/250 y=8 (bottom-center of each top
+                  node), path M nx,8 Q 150,65 150,122 (y-mirror of the bottom
+                  spec: node/hub y swapped, same quadratic form). KEEP IN
+                  SYNC WITH ecoflow_telegram_monitor.py .flow-connectors.top
+                  (and vice-versa). */}
+              <View style={styles.flowTopWrap}>
+                <View style={styles.iconsRowTop}>
+                  <IconCircle emoji="🔌" state={acFlow} watts={`${status.ac_w ?? 0} W`} dirLabel={status.has_ac ? 'Sí' : undefined} name="AC" />
+                  <IconCircle
+                    emoji="🔋"
+                    state={extraTopActive ? 'discharging' : 'neutral'}
+                    watts={`${extraOutW} W`}
+                    dirLabel={extraTopActive ? '↓ descarga' : undefined}
+                    name="Extra"
+                  />
+                  <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
+                </View>
+                <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectorsTop}>
+                  <Path d="M 50,8 Q 150,65 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 50,8 Q 150,65 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acTopActive ? 1 : 0} />
+                  <Path d="M 150,8 Q 150,65 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 150,8 Q 150,65 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={extraTopActive ? 1 : 0} />
+                  <Path d="M 250,8 Q 150,65 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 250,8 Q 150,65 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={solarActive ? 1 : 0} />
+                </Svg>
               </View>
 
               {/* Anillo de porcentaje */}
@@ -416,13 +487,16 @@ export default function App() {
               <View style={styles.flowBottomWrap}>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectors}>
                   <Path d="M 50,122 Q 150,65 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 50,122 Q 150,65 150,8" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acOutActive ? 1 : 0} />
                   <Path d="M 150,122 Q 150,65 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 150,122 Q 150,65 150,8" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={extraInActive ? 1 : 0} />
                   <Path d="M 250,122 Q 150,65 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 250,122 Q 150,65 150,8" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={usbActive ? 1 : 0} />
                 </Svg>
                 <View style={styles.iconsRowBottom}>
                   <IconCircle emoji="🔌" state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
                   <IconCircle emoji="🔋" state="neutral" watts={`${status.extra_in_w ?? 0} W`} name="Batería" />
-                  <IconCircle emoji="🔌" state="neutral" watts={`${status.usb_out_w ?? 0} W`} name="USB" />
+                  <IconCircle icon={<UsbPortIcon color={COLORS.dim} />} state="neutral" watts={`${status.usb_out_w ?? 0} W`} name="USB" />
                 </View>
               </View>
 
@@ -531,12 +605,14 @@ const styles = StyleSheet.create({
   verb: { fontSize: 13, color: COLORS.dim },
   emoji: { fontSize: 22, marginTop: 2 },
 
-  iconsRow: { width: '100%', maxWidth: 380, flexDirection: 'row', justifyContent: 'space-around', marginBottom: 14 },
   iconItem: { alignItems: 'center', width: 84 },
   iconCircle: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   iconWatts: { fontSize: 12, color: COLORS.dim, marginTop: 5, fontVariant: ['tabular-nums'] },
   iconDir: { fontSize: 11, marginTop: 1, color: COLORS.dim, height: 14 },
   iconName: { fontSize: 10, color: COLORS.faint, marginTop: 2, letterSpacing: 0.3, textTransform: 'uppercase' },
+  flowTopWrap: { width: 300, maxWidth: '100%', alignSelf: 'center', paddingBottom: 122 },
+  iconsRowTop: { width: 300, maxWidth: 300, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-around' },
+  flowConnectorsTop: { position: 'absolute', left: 0, bottom: 0 },
   flowBottomWrap: { width: 300, maxWidth: '100%', alignSelf: 'center', paddingTop: 122 },
   flowConnectors: { position: 'absolute', top: 0, left: 0 },
   iconsRowBottom: { width: 300, maxWidth: 300, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-around' },
