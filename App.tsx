@@ -759,6 +759,7 @@ export default function App() {
               <View style={styles.tabletColCenter}>
                 {notReadyCard}
                 {centerFlow}
+                {updatedRowSection}
               </View>
               <View style={styles.tabletColRight}>
                 {estadoCargaSection}
@@ -782,7 +783,10 @@ export default function App() {
             </>
           )}
 
-          {updatedRowSection}
+          {/* En tablet, updatedRowSection ya se renderiza adentro de
+              tabletColCenter (debajo del diagrama) — acá solo hace falta
+              para mobile, donde sigue yendo al final como siempre. */}
+          {!isTablet && updatedRowSection}
         </ScrollView>
       </SafeAreaView>
     </SafeAreaProvider>
