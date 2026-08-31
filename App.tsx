@@ -50,6 +50,10 @@ type StatusResponse = {
   threshold_text?: string | null;
   last_ac_text?: string | null;
   remain_duration?: string | null;
+  goal_label?: string | null;
+  goal_floor?: number | null;
+  goal_projected?: number | null;
+  goal_met?: boolean | null;
   ports?: { name: string; watts: number }[];
   updated_at?: string;
 };
@@ -372,13 +376,22 @@ export default function App() {
               </View>
 
               {/* ETA box */}
-              {status.eta_text ? (
+              {status.eta_text || status.goal_label ? (
                 <View style={styles.etaBox}>
-                  <Text style={[styles.etaMain, { color: status.eta_ok ? COLORS.green : COLORS.red }]}>{status.eta_text}</Text>
-                  <View style={styles.etaSubRow}>
-                    {status.threshold_text ? <BatteryIcon state="discharging" size={14} /> : null}
-                    <Text style={styles.etaSubText}>{status.threshold_text || status.last_ac_text || ''}</Text>
-                  </View>
+                  {status.eta_text ? (
+                    <>
+                      <Text style={[styles.etaMain, { color: status.eta_ok ? COLORS.green : COLORS.red }]}>{status.eta_text}</Text>
+                      <View style={styles.etaSubRow}>
+                        {status.threshold_text ? <BatteryIcon state="discharging" size={14} /> : null}
+                        <Text style={styles.etaSubText}>{status.threshold_text || status.last_ac_text || ''}</Text>
+                      </View>
+                    </>
+                  ) : null}
+                  {status.goal_label ? (
+                    <Text style={[styles.etaGoal, { color: status.goal_met ? COLORS.green : COLORS.red }]}>
+                      {status.goal_met ? '✅' : '⚠️'} Meta: {status.goal_floor}% para {status.goal_label} (proyectás {status.goal_projected?.toFixed(0)}%)
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -490,6 +503,10 @@ const styles = StyleSheet.create({
   etaMain: { fontSize: 22, fontWeight: '700', fontVariant: ['tabular-nums'] },
   etaSubRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   etaSubText: { fontSize: 13, color: COLORS.dim },
+  etaGoal: {
+    fontSize: 13, fontWeight: '700', marginTop: 8, paddingTop: 8,
+    borderTopWidth: 1, borderTopColor: '#232c36', fontVariant: ['tabular-nums'], textAlign: 'center',
+  },
 
   batteries: { width: '100%', maxWidth: 380, marginTop: 16 },
   batteryRow: {
