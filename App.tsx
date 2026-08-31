@@ -69,6 +69,8 @@ type StatusResponse = {
   extra_in_w: number;
   extra_out_w: number;
   usb_out_w: number;
+  delta2_charge_w: number;
+  delta2_discharge_w: number;
 };
 
 type CargasResponse = { message?: string; error?: string };
@@ -201,6 +203,77 @@ function IconCircle({
   );
 }
 
+// Nodo lateral compacto (hook que sale del anillo hacia Delta 2/Batería
+// Extra) — versión angosta de IconCircle, sin dirLabel (el web tampoco lo
+// muestra ahí, ver .icon-item.lateral-icon en ecoflow_telegram_monitor.py).
+function LateralIcon({
+  state,
+  watts,
+  name,
+  side,
+}: {
+  state: FlowState;
+  watts: string;
+  name: string;
+  side: 'left' | 'right';
+}) {
+  const bg = state === 'charging' ? COLORS.chargingBg : state === 'discharging' ? COLORS.dischargingBg : '#1c232b';
+  return (
+    <View style={side === 'right' ? styles.lateralIconRight : styles.lateralIconLeft}>
+      <View style={[styles.lateralIconCircle, { backgroundColor: bg }]}>
+        <BatteryIcon state={state} size={17} />
+      </View>
+      <Text style={styles.lateralIconWatts}>{watts}</Text>
+      <Text style={styles.lateralIconName}>{name}</Text>
+    </View>
+  );
+}
+
+// Conector "hook" lateral: sale del anillo (borde derecho o izquierdo, punto
+// medio vertical), va horizontal y dobla 90° con esquina redondeada — exacto
+// mismo `d` que .lateral-overlay/.lateral-overlay-left en
+// ecoflow_telegram_monitor.py (izquierda = mismas coordenadas en x negativo).
+// KEEP IN SYNC WITH ecoflow_telegram_monitor.py .flow-connectors.lateral.
+function LateralHook({
+  side,
+  charging,
+  discharging,
+  dashOffset,
+}: {
+  side: 'left' | 'right';
+  charging: boolean;
+  discharging: boolean;
+  dashOffset: Animated.AnimatedInterpolation<string | number>;
+}) {
+  const chargePath = side === 'right' ? 'M 0,0 L 54,0 Q 62,0 62,8' : 'M 0,0 L -54,0 Q -62,0 -62,8';
+  const dischargePath = side === 'right' ? 'M 62,8 Q 62,0 54,0 L 0,0' : 'M -62,8 Q -62,0 -54,0 L 0,0';
+  return (
+    <Svg width={64} height={10} viewBox="0 0 64 10" style={styles.lateralSvg}>
+      <Path d={chargePath} stroke="#232c36" strokeWidth={2} fill="none" />
+      <AnimatedPath
+        d={chargePath}
+        stroke={COLORS.green}
+        strokeWidth={2.5}
+        strokeLinecap="butt"
+        strokeDasharray="3,4"
+        strokeDashoffset={dashOffset}
+        fill="none"
+        opacity={charging ? 1 : 0}
+      />
+      <AnimatedPath
+        d={dischargePath}
+        stroke={COLORS.red}
+        strokeWidth={2.5}
+        strokeLinecap="butt"
+        strokeDasharray="3,4"
+        strokeDashoffset={dashOffset}
+        fill="none"
+        opacity={discharging ? 1 : 0}
+      />
+    </Svg>
+  );
+}
+
 function BatteryRow({
   label,
   pct,
@@ -270,6 +343,24 @@ export default function App() {
     return () => loop.stop();
   }, [flowAnim]);
   const flowDashOffset = flowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -16] });
+
+  // Loop separado para los hooks laterales (Delta 2 / Batería Extra): dash
+  // más chico y más rápido que el flujo principal, igual que
+  // @keyframes flow-dash-lateral (0.96s, offset -14) en el dashboard web.
+  const flowAnimLateral = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(flowAnimLateral, {
+        toValue: 1,
+        duration: 960,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [flowAnimLateral]);
+  const flowDashOffsetLateral = flowAnimLateral.interpolate({ inputRange: [0, 1], outputRange: [0, -14] });
 
   // Por default expo-updates solo baja el update nuevo en segundo plano y lo
   // aplica en el SIGUIENTE arranque en frío (no en el actual) — así que un
@@ -372,18 +463,33 @@ export default function App() {
   const pct = status?.percent ?? 0;
   const ringColor = pct <= 10 ? COLORS.red : pct <= 20 ? COLORS.yellow : COLORS.green;
   const acFlow: FlowState = status?.has_ac ? 'charging' : 'neutral';
-  // Nodo "Extra" (arriba): SIEMPRE descarga (extra_out_w), nunca neto — la
-  // carga de la batería extra se ve en la fila de abajo (Batería/extra_in_w).
-  const extraOutW = status?.extra_out_w ?? 0;
-  const extraTopActive = extraOutW > 5;
   const solarFlow: FlowState = (status?.pv_w ?? 0) > 5 ? 'charging' : 'neutral';
 
   // Wattage actual de cada nodo -> decide si su línea conectora se anima.
   const acTopActive = (status?.ac_w ?? 0) > 5;
   const solarActive = (status?.pv_w ?? 0) > 5;
   const acOutActive = (status?.ac_out_w ?? 0) > 5;
-  const extraInActive = (status?.extra_in_w ?? 0) > 5;
   const usbActive = (status?.usb_out_w ?? 0) > 5;
+
+  // Nodo lateral derecho (batería extra/expansión): solo extra_in_w O
+  // extra_out_w es distinto de cero a la vez (nunca ambos, confirmado en
+  // producción). Descarga (extra_out_w) = rojo, ring->batería en visual pero
+  // batería->ring en dirección de flujo real; carga (extra_in_w) = verde.
+  const extraInW = status?.extra_in_w ?? 0;
+  const extraOutW = status?.extra_out_w ?? 0;
+  const lateralDischarging = extraOutW > 5;
+  const lateralCharging = !lateralDischarging && extraInW > 5;
+  const lateralW = lateralDischarging ? extraOutW : extraInW;
+  const lateralState: FlowState = lateralDischarging ? 'discharging' : lateralCharging ? 'charging' : 'neutral';
+
+  // Nodo lateral izquierdo (Delta 2 propia): misma lógica, fuente
+  // delta2_charge_w/delta2_discharge_w (derivados de delta2_net_w).
+  const delta2InW = status?.delta2_charge_w ?? 0;
+  const delta2OutW = status?.delta2_discharge_w ?? 0;
+  const delta2Discharging = delta2OutW > 5;
+  const delta2Charging = !delta2Discharging && delta2InW > 5;
+  const delta2W = delta2Discharging ? delta2OutW : delta2InW;
+  const delta2State: FlowState = delta2Discharging ? 'discharging' : delta2Charging ? 'charging' : 'neutral';
 
   return (
     <SafeAreaProvider>
@@ -427,39 +533,40 @@ export default function App() {
 
               {/* GEOMETRY SPEC (top, mirrored, manifold/elbow style):
                   sdd/power-flow-bottom-nodes/design §4 — viewBox 0 0 300 130,
-                  hub (150,122) at the ring's top edge, nodes x=50/150/250 y=8
-                  (bottom-center of each top node). Each side node drops
-                  straight down to a shared horizontal bus at y=65 (rounded
-                  10px corners), then a single shared vertical trunk
-                  continues from the bus center (150,65) down to the hub.
-                  Center node is a straight vertical line (already aligned
-                  with hub x). Y-mirror of the bottom spec (node/hub y
-                  swapped, same elbow form). KEEP IN SYNC WITH
+                  hub (150,122) at the ring's top edge, nodes x=75/225 y=8
+                  (bottom-center of each top node). AC and Solar are the two
+                  remaining nodes after the middle "Extra" node was removed
+                  (consolidated into the ring's right lateral hook below) —
+                  with only 2 icon-items left, iconsRowTop's space-around
+                  naturally centers them at x=75/225 (25%/75% of 300px),
+                  which is why the connector paths below anchor there instead
+                  of the old 50/250. Each side node drops straight down to a
+                  shared horizontal bus at y=65 (rounded 10px corners), then
+                  a single shared vertical trunk continues from the bus
+                  center (150,65) down to the hub. KEEP IN SYNC WITH
                   ecoflow_telegram_monitor.py .flow-connectors.top
                   (and vice-versa). */}
               <View style={styles.flowTopWrap}>
                 <View style={styles.iconsRowTop}>
                   <IconCircle emoji="🔌" state={acFlow} watts={`${status.ac_w ?? 0} W`} dirLabel={status.has_ac ? 'Sí' : undefined} name="AC" />
-                  <IconCircle
-                    icon={<BatteryIcon state={extraTopActive ? 'discharging' : 'neutral'} />}
-                    state={extraTopActive ? 'discharging' : 'neutral'}
-                    watts={`${extraOutW} W`}
-                    dirLabel={extraTopActive ? '↓ descarga' : undefined}
-                    name="Extra"
-                  />
                   <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
                 </View>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectorsTop}>
-                  <Path d="M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75 L 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75 L 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acTopActive ? 1 : 0} />
-                  <Path d="M 150,8 L 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 150,8 L 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={extraTopActive ? 1 : 0} />
-                  <Path d="M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75 L 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75 L 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={solarActive ? 1 : 0} />
+                  <Path d="M 75,8 L 75,55 Q 75,65 85,65 L 140,65 Q 150,65 150,75 L 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 75,8 L 75,55 Q 75,65 85,65 L 140,65 Q 150,65 150,75 L 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acTopActive ? 1 : 0} />
+                  <Path d="M 225,8 L 225,55 Q 225,65 215,65 L 160,65 Q 150,65 150,75 L 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 225,8 L 225,55 Q 225,65 215,65 L 160,65 Q 150,65 150,75 L 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={solarActive ? 1 : 0} />
                 </Svg>
               </View>
 
-              {/* Anillo de porcentaje */}
+              {/* Anillo de porcentaje, con dos "hooks" laterales (izq =
+                  Delta 2 propia, der = batería extra/expansión) que salen
+                  del borde del anillo en su punto medio vertical — ver
+                  GEOMETRY SPEC en ecoflow_telegram_monitor.py
+                  .lateral-overlay/.lateral-overlay-left (KEEP IN SYNC).
+                  ringWrap tiene position:'relative' implícito (default de
+                  RN), así que estos overlays absolutos se anclan a su caja
+                  sin afectar el centrado del anillo. */}
               <View style={styles.ringWrap}>
                 <PercentRing pct={pct} color={ringColor} />
                 <View style={styles.ringInner}>
@@ -467,39 +574,42 @@ export default function App() {
                   <Text style={styles.pctSubLabel}>Tiempo restante</Text>
                   <Text style={styles.pctSubDur}>{status.remain_duration || '--'}</Text>
                 </View>
+                <View style={styles.lateralOverlayLeft}>
+                  <LateralHook side="left" charging={delta2Charging} discharging={delta2Discharging} dashOffset={flowDashOffsetLateral} />
+                  <LateralIcon side="left" state={delta2State} watts={`${delta2W} W`} name="Delta 2" />
+                </View>
+                <View style={styles.lateralOverlayRight}>
+                  <LateralHook side="right" charging={lateralCharging} discharging={lateralDischarging} dashOffset={flowDashOffsetLateral} />
+                  <LateralIcon side="right" state={lateralState} watts={`${lateralW} W`} name="Batería" />
+                </View>
               </View>
 
-              {/* Fila inferior: CA / Batería / USB, con conectores tipo manifold/elbow
+              {/* Fila inferior: CA / USB, con conectores tipo manifold/elbow
                   hacia el anillo central.
                   GEOMETRY SPEC (manifold/elbow style): sdd/power-flow-bottom-nodes/design
-                  §4 — viewBox 0 0 300 130, hub (150,8), nodes x=50/150/250 y=122.
-                  Each side node connects to a shared horizontal bus at
-                  y=65 (rounded 10px corners), then a single shared vertical
-                  trunk continues from the bus center (150,65) to the hub.
-                  Center node is a straight vertical line (already aligned with
-                  hub x). DIRECTION: unlike the top row above (Entrada, defined
-                  node -> hub), these bottom-row (Salida) paths are defined
-                  hub -> node — the ring feeds the device, so the flow-dash
-                  animation must walk in the opposite winding direction, same
-                  visual geometry. KEEP IN SYNC WITH ecoflow_telegram_monitor.py
-                  .flow-connectors (and vice-versa). */}
+                  §4 — viewBox 0 0 300 130, hub (150,8), nodes x=75/225 y=122.
+                  CA/USB son los 2 nodos que quedan después de sacar el
+                  "Batería" del medio (consolidado en el hook lateral derecho
+                  del anillo, ver arriba) — mismo razonamiento de centrado
+                  x=75/225 que la fila de arriba. Each side node connects to
+                  a shared horizontal bus at y=65 (rounded 10px corners),
+                  then a single shared vertical trunk continues from the bus
+                  center (150,65) to the hub. DIRECTION: unlike the top row
+                  above (Entrada, defined node -> hub), these bottom-row
+                  (Salida) paths are defined hub -> node — the ring feeds the
+                  device, so the flow-dash animation must walk in the
+                  opposite winding direction, same visual geometry. KEEP IN
+                  SYNC WITH ecoflow_telegram_monitor.py .flow-connectors
+                  (and vice-versa). */}
               <View style={styles.flowBottomWrap}>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectors}>
-                  <Path d="M 150,8 L 150,55 Q 150,65 140,65 L 60,65 Q 50,65 50,75 L 50,122" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 150,8 L 150,55 Q 150,65 140,65 L 60,65 Q 50,65 50,75 L 50,122" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acOutActive ? 1 : 0} />
-                  <Path d="M 150,8 L 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 150,8 L 150,122" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={extraInActive ? 1 : 0} />
-                  <Path d="M 150,8 L 150,55 Q 150,65 160,65 L 240,65 Q 250,65 250,75 L 250,122" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 150,8 L 150,55 Q 150,65 160,65 L 240,65 Q 250,65 250,75 L 250,122" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={usbActive ? 1 : 0} />
+                  <Path d="M 150,8 L 150,55 Q 150,65 140,65 L 85,65 Q 75,65 75,75 L 75,122" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 150,8 L 150,55 Q 150,65 140,65 L 85,65 Q 75,65 75,75 L 75,122" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acOutActive ? 1 : 0} />
+                  <Path d="M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={usbActive ? 1 : 0} />
                 </Svg>
                 <View style={styles.iconsRowBottom}>
                   <IconCircle emoji="🔌" state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
-                  <IconCircle
-                    icon={<BatteryIcon state={extraInActive ? 'charging' : 'neutral'} />}
-                    state={extraInActive ? 'charging' : 'neutral'}
-                    watts={`${status.extra_in_w ?? 0} W`}
-                    name="Batería"
-                  />
                   <IconCircle icon={<UsbIcon color={COLORS.dim} />} state="neutral" watts={`${status.usb_out_w ?? 0} W`} name="USB" />
                 </View>
               </View>
@@ -633,6 +743,20 @@ const styles = StyleSheet.create({
     width: 240 * 0.8, height: 240 * 0.8, borderRadius: (240 * 0.8) / 2, backgroundColor: COLORS.bg,
     alignItems: 'center', justifyContent: 'center',
   },
+  // Hooks laterales (Delta 2 propia / batería extra), anclados al borde del
+  // ring en su punto medio vertical (top: 120 = mitad de los 240px de
+  // ringWrap). left:240 = borde derecho, left:0 = borde izquierdo — mismos
+  // valores que .lateral-overlay/.lateral-overlay-left en
+  // ecoflow_telegram_monitor.py. width/height:0 para no consumir layout.
+  lateralOverlayRight: { position: 'absolute', left: 240, top: 120, width: 0, height: 0 },
+  lateralOverlayLeft: { position: 'absolute', left: 0, top: 120, width: 0, height: 0 },
+  lateralSvg: { overflow: 'visible' },
+  lateralIconRight: { position: 'absolute', left: 34, top: -12, width: 56, alignItems: 'center' },
+  lateralIconLeft: { position: 'absolute', left: -90, top: -12, width: 56, alignItems: 'center' },
+  lateralIconCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  lateralIconWatts: { fontSize: 11, color: COLORS.dim, marginTop: 3, fontVariant: ['tabular-nums'] },
+  lateralIconName: { fontSize: 9, color: COLORS.faint, marginTop: 2, letterSpacing: 0.3, textTransform: 'uppercase' },
+
   pct: { fontSize: 48, fontWeight: '700', color: COLORS.text, fontVariant: ['tabular-nums'] },
   pctSubLabel: { fontSize: 13, color: COLORS.dim, marginTop: 8 },
   pctSubDur: { fontSize: 22, color: '#e5e7eb', fontWeight: '700', marginTop: 2, fontVariant: ['tabular-nums'] },
