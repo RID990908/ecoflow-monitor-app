@@ -72,7 +72,7 @@ type StatusResponse = {
 };
 
 type CargasResponse = { message?: string; error?: string };
-type Device = { key: string; label: string; emoji: string; watts: number; on: boolean };
+type Device = { key: string; label: string; emoji: string; watts: number; on: boolean; charged?: boolean | null };
 type DevicesResponse = { devices: Device[] };
 
 type FlowState = 'neutral' | 'charging' | 'discharging';
@@ -546,6 +546,28 @@ export default function App() {
               </View>
             </View>
           ) : null}
+
+          {/* Estado de carga: solo lectura, se marca por Telegram (/cargado, /descargado) */}
+          {devices.some((d) => d.charged != null) && (
+            <View style={styles.devices}>
+              <Text style={styles.sectionTitle}>Estado de carga</Text>
+              {devices
+                .filter((d) => d.charged != null)
+                .map((d) => (
+                  <View
+                    key={d.key}
+                    style={[styles.deviceBtn, d.charged ? styles.deviceBtnOn : styles.deviceBtnOff]}
+                  >
+                    <Text style={styles.deviceBtnName}>
+                      {d.emoji} {d.label}
+                    </Text>
+                    <Text style={[styles.deviceState, { color: d.charged ? COLORS.green : COLORS.faint }]}>
+                      {d.charged ? '🔋 cargada' : '🪫 descargada'}
+                    </Text>
+                  </View>
+                ))}
+            </View>
+          )}
 
           {/* Dispositivos */}
           {devices.length > 0 && (
