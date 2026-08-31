@@ -308,9 +308,9 @@ export default function App() {
     loadStatus();
     loadCargas();
     loadDevices();
-    const statusInterval = setInterval(loadStatus, 1000);
-    const cargasInterval = setInterval(loadCargas, 1000);
-    const devicesInterval = setInterval(loadDevices, 1000);
+    const statusInterval = setInterval(loadStatus, 2000);
+    const cargasInterval = setInterval(loadCargas, 2000);
+    const devicesInterval = setInterval(loadDevices, 2000);
     const clockInterval = setInterval(() => {
       if (lastSuccessAt.current == null) {
         setUpdatedLabel('Conectando…');
