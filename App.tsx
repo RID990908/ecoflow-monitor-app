@@ -116,20 +116,6 @@ function UsbIcon({ color = COLORS.dim }: { color?: string }) {
   );
 }
 
-// Puerto USB estilizado para el nodo "USB" de la fila inferior — mismo
-// patrón de composición que BatteryIcon (rect outline + nub), para no
-// reusar el emoji 🔌 del nodo "CA" (eran ambiguos, mismo ícono para dos
-// cosas distintas).
-function UsbPortIcon({ color, size = 22 }: { color: string; size?: number }) {
-  const w = size * (28 / 16);
-  return (
-    <Svg width={w} height={size} viewBox="0 0 28 16">
-      <Rect x={2} y={3} width={20} height={10} rx={2} fill="none" stroke={color} strokeWidth={2} />
-      <Rect x={22} y={6.5} width={4} height={3} fill={color} />
-    </Svg>
-  );
-}
-
 function ArrowDownIcon({ color }: { color: string }) {
   return (
     <Svg width={14} height={14} viewBox="0 0 24 24">
@@ -455,7 +441,7 @@ export default function App() {
                 <View style={styles.iconsRowTop}>
                   <IconCircle emoji="🔌" state={acFlow} watts={`${status.ac_w ?? 0} W`} dirLabel={status.has_ac ? 'Sí' : undefined} name="AC" />
                   <IconCircle
-                    emoji="🔋"
+                    icon={<BatteryIcon state={extraTopActive ? 'discharging' : 'neutral'} />}
                     state={extraTopActive ? 'discharging' : 'neutral'}
                     watts={`${extraOutW} W`}
                     dirLabel={extraTopActive ? '↓ descarga' : undefined}
@@ -504,8 +490,13 @@ export default function App() {
                 </Svg>
                 <View style={styles.iconsRowBottom}>
                   <IconCircle emoji="🔌" state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
-                  <IconCircle emoji="🔋" state="neutral" watts={`${status.extra_in_w ?? 0} W`} name="Batería" />
-                  <IconCircle icon={<UsbPortIcon color={COLORS.dim} />} state="neutral" watts={`${status.usb_out_w ?? 0} W`} name="USB" />
+                  <IconCircle
+                    icon={<BatteryIcon state={extraInActive ? 'charging' : 'neutral'} />}
+                    state={extraInActive ? 'charging' : 'neutral'}
+                    watts={`${status.extra_in_w ?? 0} W`}
+                    name="Batería"
+                  />
+                  <IconCircle icon={<UsbIcon color={COLORS.dim} />} state="neutral" watts={`${status.usb_out_w ?? 0} W`} name="USB" />
                 </View>
               </View>
 
@@ -539,21 +530,6 @@ export default function App() {
                 )}
               </View>
 
-              {/* Puertos */}
-              {status.ports && status.ports.length > 0 && (
-                <View style={styles.ports}>
-                  <Text style={styles.sectionTitle}>Puertos activos</Text>
-                  {status.ports.map((p, i) => (
-                    <View key={i} style={styles.portRow}>
-                      <View style={styles.portName}>
-                        <UsbIcon />
-                        <Text style={styles.portNameText}>{p.name}</Text>
-                      </View>
-                      <Text style={styles.portWatts}>{p.watts} W</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
             </>
           )}
 
@@ -659,12 +635,7 @@ const styles = StyleSheet.create({
   batteryRowRemain: { fontSize: 12, fontWeight: '600' },
   batteryRowVal: { fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'] },
 
-  ports: { width: '100%', maxWidth: 380, marginTop: 14 },
   sectionTitle: { fontSize: 13, color: COLORS.dim, marginBottom: 6 },
-  portRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
-  portName: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  portNameText: { fontSize: 14, color: '#cbd5e1' },
-  portWatts: { fontSize: 14, color: '#cbd5e1', fontVariant: ['tabular-nums'] },
 
   cargas: { width: '100%', maxWidth: 380, marginTop: 14 },
   cargasBox: { backgroundColor: COLORS.card, borderColor: COLORS.border, borderWidth: 1, borderRadius: 10, padding: 14 },
