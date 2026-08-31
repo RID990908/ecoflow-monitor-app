@@ -57,11 +57,6 @@ type StatusResponse = {
   goal_met?: boolean | null;
   ports?: { name: string; watts: number }[];
   updated_at?: string;
-  ecoplay?: {
-    pct: number;
-    target_text: string;
-    safe_switch_text: string;
-  } | null;
 };
 
 type CargasResponse = { message?: string; error?: string };
@@ -463,21 +458,6 @@ export default function App() {
               <Text style={styles.sectionTitle}>Gestión de cargas</Text>
               <View style={styles.cargasBox}>
                 <Text style={styles.cargasText}>{formatCargas(cargas)}</Text>
-              </View>
-            </View>
-          ) : null}
-
-          {/* Batería propia de la Ecoplay/WiFi — el % lo informa el usuario a
-              mano por Telegram (/ecoplay <pct>), acá se muestra el último
-              valor conocido con el cálculo recalculado en cada fetch. */}
-          {status?.ecoplay ? (
-            <View style={styles.cargas}>
-              <Text style={styles.sectionTitle}>📡 Ecoplay · batería propia</Text>
-              <View style={styles.cargasBox}>
-                <Text style={styles.cargasText}>
-                  {`Ecoplay al ${status.ecoplay.pct}%: podés poner la wifi en su batería propia a partir de las ` +
-                    `~${status.ecoplay.safe_switch_text} para que aguante hasta las ${status.ecoplay.target_text}.`}
-                </Text>
               </View>
             </View>
           ) : null}
