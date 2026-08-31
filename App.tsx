@@ -99,6 +99,7 @@ type Device = {
   on: boolean;
   charged?: boolean | null;
   fits?: boolean | null;
+  deficit_w?: number | null;
   note?: string | null;
 };
 type DevicesResponse = { devices: Device[] };
@@ -764,6 +765,9 @@ export default function App() {
           <Text style={styles.deviceBtnName}>
             {d.fits != null ? (d.fits ? '🟢 ' : '🔴 ') : ''}
             {d.emoji} {d.label} · {d.watts}W
+            {d.on && d.fits === false && d.deficit_w ? (
+              <Text style={styles.deficitText}> (-{d.deficit_w}W)</Text>
+            ) : null}
           </Text>
           <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>{d.on ? 'ON' : 'OFF'}</Text>
         </Pressable>
@@ -991,6 +995,7 @@ const styles = StyleSheet.create({
   deviceBtnName: { fontSize: 14, color: '#cbd5e1' },
   deviceBtnNameCol: { flexShrink: 1 },
   deviceBtnNote: { fontSize: 12, color: COLORS.faint, marginTop: 2 },
+  deficitText: { color: COLORS.red, fontWeight: '700', fontSize: 12 },
   deviceState: { fontWeight: '700', fontSize: 12, letterSpacing: 0.5 },
 
   updatedRow: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
