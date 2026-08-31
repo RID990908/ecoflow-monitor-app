@@ -9,6 +9,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +22,12 @@ import * as Updates from 'expo-updates';
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 const API_BASE = 'https://ecoflow-monitor-production.up.railway.app';
+
+// A partir de este ancho (iPad en cualquier orientación, tablets chicas
+// incluidas) se activa el layout de 3 columnas — ver `isTablet` en App().
+// useWindowDimensions() (a diferencia de Dimensions.get) es reactivo: se
+// actualiza solo ante rotación/resize, sin necesidad de listeners manuales.
+const TABLET_BREAKPOINT = 768;
 
 const COLORS = {
   bg: '#0b0f14',
@@ -316,6 +323,9 @@ function formatCargas(raw: string): string {
 }
 
 export default function App() {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= TABLET_BREAKPOINT;
+
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [cargas, setCargas] = useState<string>('');
   const [devices, setDevices] = useState<Device[]>([]);
@@ -491,20 +501,19 @@ export default function App() {
   const delta2W = delta2Discharging ? delta2OutW : delta2InW;
   const delta2State: FlowState = delta2Discharging ? 'discharging' : delta2Charging ? 'charging' : 'neutral';
 
-  return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.dim} />}
-        >
-          {!status || !status.ready ? (
-            <View style={styles.card}>
-              <Text style={styles.dimText}>{status?.error ?? 'Conectando…'}</Text>
-            </View>
-          ) : (
-            <>
+  // Cada sección se arma una sola vez como variable JSX y se reusa TAL CUAL
+  // (mismo árbol de componentes) tanto en el layout mobile (una sola
+  // columna, orden original sin tocar) como en el layout tablet (3
+  // columnas) — así no hay dos copias del diagrama central que se puedan
+  // desincronizar entre sí.
+  const notReadyCard = !status || !status.ready ? (
+    <View style={styles.card}>
+      <Text style={styles.dimText}>{status?.error ?? 'Conectando…'}</Text>
+    </View>
+  ) : null;
+
+  const centerFlow = status && status.ready ? (
+    <>
               {/* io-row: entrada / verbo+emoji / salida */}
               <View style={styles.ioRow}>
                 <View style={styles.ioCol}>
@@ -633,75 +642,130 @@ export default function App() {
                   ) : null}
                 </View>
               ) : null}
+    </>
+  ) : null;
 
-              {/* Baterías */}
-              <View style={styles.batteries}>
-                {status.soc_delta2 != null && (
-                  <BatteryRow label="Delta 2" pct={status.soc_delta2} netW={status.delta2_net_w} remain={status.delta2_remain} />
-                )}
-                {status.soc_extra != null && (
-                  <BatteryRow label="Batería Extra" pct={status.soc_extra} netW={status.extra_net_w} remain={status.extra_remain} />
-                )}
+  const batteriesSection = status && status.ready ? (
+    <View style={styles.batteries}>
+      {status.soc_delta2 != null && (
+        <BatteryRow label="Delta 2" pct={status.soc_delta2} netW={status.delta2_net_w} remain={status.delta2_remain} />
+      )}
+      {status.soc_extra != null && (
+        <BatteryRow label="Batería Extra" pct={status.soc_extra} netW={status.extra_net_w} remain={status.extra_remain} />
+      )}
+    </View>
+  ) : null;
+
+  // Gestión de cargas
+  const cargasSection = cargas ? (
+    <View style={styles.cargas}>
+      <Text style={styles.sectionTitle}>Gestión de cargas</Text>
+      <View style={styles.cargasBox}>
+        <Text style={styles.cargasText}>{formatCargas(cargas)}</Text>
+      </View>
+    </View>
+  ) : null;
+
+  // Estado de carga: solo lectura, se marca por Telegram (/cargado, /descargado)
+  const estadoCargaSection = devices.some((d) => d.charged != null) ? (
+    <View style={styles.devices}>
+      <Text style={styles.sectionTitle}>Estado de carga</Text>
+      {devices
+        .filter((d) => d.charged != null)
+        .map((d) => (
+          <View
+            key={d.key}
+            style={[styles.deviceBtn, d.charged ? styles.deviceBtnOn : styles.deviceBtnOff]}
+          >
+            <Text style={styles.deviceBtnName}>
+              {d.emoji} {d.label}
+            </Text>
+            <Text style={[styles.deviceState, { color: d.charged ? COLORS.green : COLORS.faint }]}>
+              {d.charged ? '🔋 cargada' : '🪫 descargada'}
+            </Text>
+          </View>
+        ))}
+    </View>
+  ) : null;
+
+  // Dispositivos
+  const dispositivosSection = devices.length > 0 ? (
+    <View style={styles.devices}>
+      <Text style={styles.sectionTitle}>Qué tenés encendido</Text>
+      {devices.map((d) => (
+        <Pressable
+          key={d.key}
+          onPress={() => toggleDevice(d.key, !d.on)}
+          style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}
+        >
+          <Text style={styles.deviceBtnName}>
+            {d.emoji} {d.label} · {d.watts}W
+          </Text>
+          <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>{d.on ? 'ON' : 'OFF'}</Text>
+        </Pressable>
+      ))}
+    </View>
+  ) : null;
+
+  const updatedRowSection = (
+    <View style={styles.updatedRow}>
+      <View style={[styles.liveDot, { backgroundColor: live === 'ok' ? COLORS.green : '#ef4444' }]} />
+      <Text style={styles.updatedText}>{updatedLabel}</Text>
+    </View>
+  );
+
+  return (
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.dim} />}
+        >
+          {isTablet ? (
+            // Layout tablet/iPad (>= TABLET_BREAKPOINT): 3 columnas
+            // independientes en un contenedor flexDirection:'row'. CLAVE:
+            // alignItems:'flex-start' en vez de 'stretch' (el default de
+            // 'stretch' NO aplica acá porque cada columna ya tiene su propio
+            // ancho fijo, pero 'flex-start' además evita que RN intente
+            // igualar alturas — cada View hija en un row solo crece a la
+            // altura de SU PROPIO contenido, nunca la de sus hermanas). Esto
+            // es justamente lo que CSS Grid no daba: ahí una fila de grid se
+            // estira a la altura del ítem más alto de esa fila entre TODAS
+            // las columnas, generando huecos enormes cuando un panel lateral
+            // corto compartía fila con el diagrama central, mucho más alto.
+            // Acá no hay filas compartidas entre columnas: cada columna es
+            // un único bloque vertical independiente, sin ninguna
+            // coordinación de alturas entre sí.
+            <View style={styles.tabletRow}>
+              <View style={styles.tabletColLeft}>
+                {batteriesSection}
+                {cargasSection}
               </View>
-
+              <View style={styles.tabletColCenter}>
+                {notReadyCard}
+                {centerFlow}
+              </View>
+              <View style={styles.tabletColRight}>
+                {estadoCargaSection}
+                {dispositivosSection}
+              </View>
+            </View>
+          ) : (
+            // Layout mobile (< TABLET_BREAKPOINT): una sola columna, mismo
+            // orden y mismos componentes que antes de este cambio — sin
+            // modificaciones de comportamiento.
+            <>
+              {notReadyCard}
+              {centerFlow}
+              {batteriesSection}
+              {cargasSection}
+              {estadoCargaSection}
+              {dispositivosSection}
             </>
           )}
 
-          {/* Gestión de cargas */}
-          {cargas ? (
-            <View style={styles.cargas}>
-              <Text style={styles.sectionTitle}>Gestión de cargas</Text>
-              <View style={styles.cargasBox}>
-                <Text style={styles.cargasText}>{formatCargas(cargas)}</Text>
-              </View>
-            </View>
-          ) : null}
-
-          {/* Estado de carga: solo lectura, se marca por Telegram (/cargado, /descargado) */}
-          {devices.some((d) => d.charged != null) && (
-            <View style={styles.devices}>
-              <Text style={styles.sectionTitle}>Estado de carga</Text>
-              {devices
-                .filter((d) => d.charged != null)
-                .map((d) => (
-                  <View
-                    key={d.key}
-                    style={[styles.deviceBtn, d.charged ? styles.deviceBtnOn : styles.deviceBtnOff]}
-                  >
-                    <Text style={styles.deviceBtnName}>
-                      {d.emoji} {d.label}
-                    </Text>
-                    <Text style={[styles.deviceState, { color: d.charged ? COLORS.green : COLORS.faint }]}>
-                      {d.charged ? '🔋 cargada' : '🪫 descargada'}
-                    </Text>
-                  </View>
-                ))}
-            </View>
-          )}
-
-          {/* Dispositivos */}
-          {devices.length > 0 && (
-            <View style={styles.devices}>
-              <Text style={styles.sectionTitle}>Qué tenés encendido</Text>
-              {devices.map((d) => (
-                <Pressable
-                  key={d.key}
-                  onPress={() => toggleDevice(d.key, !d.on)}
-                  style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}
-                >
-                  <Text style={styles.deviceBtnName}>
-                    {d.emoji} {d.label} · {d.watts}W
-                  </Text>
-                  <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>{d.on ? 'ON' : 'OFF'}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-
-          <View style={styles.updatedRow}>
-            <View style={[styles.liveDot, { backgroundColor: live === 'ok' ? COLORS.green : '#ef4444' }]} />
-            <Text style={styles.updatedText}>{updatedLabel}</Text>
-          </View>
+          {updatedRowSection}
         </ScrollView>
       </SafeAreaView>
     </SafeAreaProvider>
@@ -716,6 +780,14 @@ const styles = StyleSheet.create({
     padding: 16, width: '100%', maxWidth: 380,
   },
   dimText: { color: COLORS.dim, fontSize: 14 },
+
+  // Layout tablet/iPad — ver comentario junto a `isTablet` en el render.
+  // alignItems:'flex-start' (no 'stretch') es lo que mantiene la altura de
+  // cada columna desacoplada de sus hermanas.
+  tabletRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', width: '100%', gap: 24 },
+  tabletColLeft: { flexDirection: 'column', width: 260 },
+  tabletColCenter: { flexDirection: 'column', alignItems: 'center', width: 380 },
+  tabletColRight: { flexDirection: 'column', width: 260 },
 
   ioRow: { width: '100%', maxWidth: 380, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
   ioCol: { flex: 1 },
