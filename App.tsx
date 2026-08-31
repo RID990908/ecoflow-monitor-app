@@ -99,6 +99,7 @@ type Device = {
   on: boolean;
   charged?: boolean | null;
   fits?: boolean | null;
+  note?: string | null;
 };
 type DevicesResponse = { devices: Device[] };
 
@@ -736,9 +737,12 @@ export default function App() {
             onPress={() => toggleCharged(d.key, !d.charged)}
             style={[styles.deviceBtn, d.charged ? styles.deviceBtnOn : styles.deviceBtnOff]}
           >
-            <Text style={styles.deviceBtnName}>
-              {d.emoji} {d.label}
-            </Text>
+            <View style={styles.deviceBtnNameCol}>
+              <Text style={styles.deviceBtnName}>
+                {d.emoji} {d.label}
+              </Text>
+              {d.note ? <Text style={styles.deviceBtnNote}>{d.note}</Text> : null}
+            </View>
             <Text style={[styles.deviceState, { color: d.charged ? COLORS.green : COLORS.faint }]}>
               {d.charged ? '🔋 cargada' : '🪫 descargada'}
             </Text>
@@ -985,6 +989,8 @@ const styles = StyleSheet.create({
   deviceBtnOn: { backgroundColor: '#1a2b1f', borderColor: '#4ade8055' },
   deviceBtnOff: { backgroundColor: COLORS.card, borderColor: COLORS.border },
   deviceBtnName: { fontSize: 14, color: '#cbd5e1' },
+  deviceBtnNameCol: { flexShrink: 1 },
+  deviceBtnNote: { fontSize: 12, color: COLORS.faint, marginTop: 2 },
   deviceState: { fontWeight: '700', fontSize: 12, letterSpacing: 0.5 },
 
   updatedRow: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
