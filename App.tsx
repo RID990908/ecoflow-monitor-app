@@ -439,12 +439,17 @@ export default function App() {
                 </View>
               </View>
 
-              {/* GEOMETRY SPEC (top, mirrored): sdd/power-flow-bottom-nodes/design
-                  §4 — viewBox 0 0 300 130, hub (150,122) at the ring's top
-                  edge, nodes x=50/150/250 y=8 (bottom-center of each top
-                  node), path M nx,8 Q 150,65 150,122 (y-mirror of the bottom
-                  spec: node/hub y swapped, same quadratic form). KEEP IN
-                  SYNC WITH ecoflow_telegram_monitor.py .flow-connectors.top
+              {/* GEOMETRY SPEC (top, mirrored, manifold/elbow style):
+                  sdd/power-flow-bottom-nodes/design §4 — viewBox 0 0 300 130,
+                  hub (150,122) at the ring's top edge, nodes x=50/150/250 y=8
+                  (bottom-center of each top node). Each side node drops
+                  straight down to a shared horizontal bus at y=65 (rounded
+                  10px corners), then a single shared vertical trunk
+                  continues from the bus center (150,65) down to the hub.
+                  Center node is a straight vertical line (already aligned
+                  with hub x). Y-mirror of the bottom spec (node/hub y
+                  swapped, same elbow form). KEEP IN SYNC WITH
+                  ecoflow_telegram_monitor.py .flow-connectors.top
                   (and vice-versa). */}
               <View style={styles.flowTopWrap}>
                 <View style={styles.iconsRowTop}>
@@ -459,12 +464,12 @@ export default function App() {
                   <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
                 </View>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectorsTop}>
-                  <Path d="M 50,8 Q 150,65 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 50,8 Q 150,65 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acTopActive ? 1 : 0} />
-                  <Path d="M 150,8 Q 150,65 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 150,8 Q 150,65 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={extraTopActive ? 1 : 0} />
-                  <Path d="M 250,8 Q 150,65 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 250,8 Q 150,65 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={solarActive ? 1 : 0} />
+                  <Path d="M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75 L 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75 L 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acTopActive ? 1 : 0} />
+                  <Path d="M 150,8 L 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 150,8 L 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={extraTopActive ? 1 : 0} />
+                  <Path d="M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75 L 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75 L 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={solarActive ? 1 : 0} />
                 </Svg>
               </View>
 
@@ -478,20 +483,24 @@ export default function App() {
                 </View>
               </View>
 
-              {/* Fila inferior: CA / Batería / USB, con conectores curvos hacia el
-                  anillo central.
-                  GEOMETRY SPEC: sdd/power-flow-bottom-nodes/design §4 — viewBox
-                  0 0 300 130, hub (150,8), nodes x=50/150/250 y=122, path
-                  M nx,ny Q 150,65 150,8. KEEP IN SYNC WITH
-                  ecoflow_telegram_monitor.py .flow-connectors (and vice-versa). */}
+              {/* Fila inferior: CA / Batería / USB, con conectores tipo manifold/elbow
+                  hacia el anillo central.
+                  GEOMETRY SPEC (manifold/elbow style): sdd/power-flow-bottom-nodes/design
+                  §4 — viewBox 0 0 300 130, hub (150,8), nodes x=50/150/250 y=122.
+                  Each side node rises straight up to a shared horizontal bus at
+                  y=65 (rounded 10px corners), then a single shared vertical
+                  trunk continues from the bus center (150,65) up to the hub.
+                  Center node is a straight vertical line (already aligned with
+                  hub x). KEEP IN SYNC WITH ecoflow_telegram_monitor.py
+                  .flow-connectors (and vice-versa). */}
               <View style={styles.flowBottomWrap}>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectors}>
-                  <Path d="M 50,122 Q 150,65 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 50,122 Q 150,65 150,8" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acOutActive ? 1 : 0} />
-                  <Path d="M 150,122 Q 150,65 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 150,122 Q 150,65 150,8" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={extraInActive ? 1 : 0} />
-                  <Path d="M 250,122 Q 150,65 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 250,122 Q 150,65 150,8" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={usbActive ? 1 : 0} />
+                  <Path d="M 50,122 L 50,75 Q 50,65 60,65 L 140,65 Q 150,65 150,55 L 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 50,122 L 50,75 Q 50,65 60,65 L 140,65 Q 150,65 150,55 L 150,8" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acOutActive ? 1 : 0} />
+                  <Path d="M 150,122 L 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 150,122 L 150,8" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={extraInActive ? 1 : 0} />
+                  <Path d="M 250,122 L 250,75 Q 250,65 240,65 L 160,65 Q 150,65 150,55 L 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <AnimatedPath d="M 250,122 L 250,75 Q 250,65 240,65 L 160,65 Q 150,65 150,55 L 150,8" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={usbActive ? 1 : 0} />
                 </Svg>
                 <View style={styles.iconsRowBottom}>
                   <IconCircle emoji="🔌" state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
