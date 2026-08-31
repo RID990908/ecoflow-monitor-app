@@ -91,7 +91,6 @@ type StatusResponse = {
   delta2_discharge_w: number;
 };
 
-type CargasResponse = { message?: string; error?: string };
 type Device = {
   key: string;
   label: string;
@@ -113,14 +112,6 @@ function batteryFlow(netW: number | null | undefined): { state: FlowState } {
 
 function flowColor(state: FlowState) {
   return state === 'charging' ? COLORS.green : state === 'discharging' ? COLORS.red : COLORS.faint;
-}
-
-// La meta y "se va a cumplir" ya se muestran arriba en la caja de eta junto
-// con "dura hasta las X" — se recortan acá del texto de Gestión de cargas
-// para no repetirlas dos veces en la misma pantalla.
-function stripMeta(msg: string): string {
-  const idx = msg.indexOf('\n\n🎯 Meta:');
-  return idx === -1 ? msg : msg.slice(0, idx);
 }
 
 // Mismo shape que el ícono de batería del dashboard web (un rect + terminal + relleno).
@@ -342,18 +333,11 @@ function BatteryRow({
   );
 }
 
-// El bot manda *negrita* estilo Telegram — se quitan los asteriscos, sin
-// intentar re-crear el bold real para no complicar el render.
-function formatCargas(raw: string): string {
-  return raw.replace(/\*/g, '');
-}
-
 export default function App() {
   const { width } = useWindowDimensions();
   const isTablet = width >= TABLET_BREAKPOINT;
 
   const [status, setStatus] = useState<StatusResponse | null>(null);
-  const [cargas, setCargas] = useState<string>('');
   const [devices, setDevices] = useState<Device[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [live, setLive] = useState<'ok' | 'stale'>('stale');
@@ -433,16 +417,6 @@ export default function App() {
     }
   }, []);
 
-  const loadCargas = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/cargas`);
-      const data: CargasResponse = await res.json();
-      setCargas(stripMeta(data.message ?? ''));
-    } catch {
-      // silencioso
-    }
-  }, []);
-
   const loadDevices = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/devices`);
@@ -488,11 +462,10 @@ export default function App() {
       });
       const data: DevicesResponse = await res.json();
       if (data.devices) setDevices(data.devices);
-      if (key === 'ecoplay') loadCargas();
     } catch {
       loadDevices();
     }
-  }, [loadDevices, loadCargas]);
+  }, [loadDevices]);
 
   // Modal de % de Ecoplay (POST /api/ecoplay), único trigger: el badge de
   // Ecoplay en "Estado de carga" cuando está descargada (ver toggleCharged).
@@ -526,19 +499,16 @@ export default function App() {
       } catch {
         loadDevices();
       }
-      loadCargas();
       setEcoplayModalVisible(false);
     } catch {
       setEcoplayModalError('No se pudo conectar con el servidor.');
     }
-  }, [ecoplayPctInput, loadDevices, loadCargas]);
+  }, [ecoplayPctInput, loadDevices]);
 
   useEffect(() => {
     loadStatus();
-    loadCargas();
     loadDevices();
     const statusInterval = setInterval(loadStatus, 2000);
-    const cargasInterval = setInterval(loadCargas, 2000);
     const devicesInterval = setInterval(loadDevices, 2000);
     const clockInterval = setInterval(() => {
       if (lastSuccessAt.current == null) {
@@ -552,17 +522,16 @@ export default function App() {
     }, 1000);
     return () => {
       clearInterval(statusInterval);
-      clearInterval(cargasInterval);
       clearInterval(devicesInterval);
       clearInterval(clockInterval);
     };
-  }, [loadStatus, loadCargas, loadDevices]);
+  }, [loadStatus, loadDevices]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadStatus(), loadCargas(), loadDevices()]);
+    await Promise.all([loadStatus(), loadDevices()]);
     setRefreshing(false);
-  }, [loadStatus, loadCargas, loadDevices]);
+  }, [loadStatus, loadDevices]);
 
   const pct = status?.percent ?? 0;
   const ringColor = pct <= RING_RED_MAX_PCT ? COLORS.red : pct <= RING_YELLOW_MAX_PCT ? COLORS.yellow : COLORS.green;
@@ -721,9 +690,9 @@ export default function App() {
   ) : null;
 
   // ETA box ("Llena a las...") extraída como sección propia (antes vivía
-  // adentro de centerFlow) para poder reubicarla en la columna izquierda,
-  // debajo de "Gestión de cargas", en el layout de iPad — en mobile se
-  // sigue renderizando justo después de centerFlow, mismo lugar de siempre.
+  // adentro de centerFlow) para poder reubicarla en la columna izquierda del
+  // layout de iPad — en mobile se sigue renderizando justo después de
+  // centerFlow, mismo lugar de siempre.
   const etaBoxSection = status && status.ready && (status.eta_text || status.goal_label) ? (
     <View style={styles.etaBox}>
       {status.eta_text ? (
@@ -751,16 +720,6 @@ export default function App() {
       {status.soc_extra != null && (
         <BatteryRow label="Batería Extra" pct={status.soc_extra} netW={status.extra_net_w} remain={status.extra_remain} />
       )}
-    </View>
-  ) : null;
-
-  // Gestión de cargas
-  const cargasSection = cargas ? (
-    <View style={styles.cargas}>
-      <Text style={styles.sectionTitle}>Gestión de cargas</Text>
-      <View style={styles.cargasBox}>
-        <Text style={styles.cargasText}>{formatCargas(cargas)}</Text>
-      </View>
     </View>
   ) : null;
 
@@ -841,7 +800,7 @@ export default function App() {
             <View style={styles.tabletRow}>
               <View style={styles.tabletColLeft}>
                 {batteriesSection}
-                {cargasSection}
+                {dispositivosSection}
                 {etaBoxSection}
               </View>
               <View style={styles.tabletColCenter}>
@@ -851,21 +810,19 @@ export default function App() {
               </View>
               <View style={styles.tabletColRight}>
                 {estadoCargaSection}
-                {dispositivosSection}
               </View>
             </View>
           ) : (
             // Layout mobile (< TABLET_BREAKPOINT): una sola columna, mismo
-            // orden y mismos componentes que antes de este cambio — sin
-            // modificaciones de comportamiento (etaBoxSection ahora está
-            // separada de centerFlow pero se renderiza justo después, mismo
-            // lugar visual de siempre).
+            // orden de siempre (etaBoxSection separada de centerFlow pero
+            // renderizada justo después, mismo lugar visual). "Gestión de
+            // cargas" se sacó de acá: quedó redundante con el punto 🟢/🔴
+            // que ahora se pega directo a cada fila de dispositivosSection.
             <>
               {notReadyCard}
               {centerFlow}
               {etaBoxSection}
               {batteriesSection}
-              {cargasSection}
               {estadoCargaSection}
               {dispositivosSection}
             </>
@@ -1019,10 +976,6 @@ const styles = StyleSheet.create({
   batteryRowVal: { fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'] },
 
   sectionTitle: { fontSize: 13, color: COLORS.dim, marginBottom: 6 },
-
-  cargas: { width: '100%', maxWidth: 380, marginTop: 14 },
-  cargasBox: { backgroundColor: COLORS.card, borderColor: COLORS.border, borderWidth: 1, borderRadius: 10, padding: 14 },
-  cargasText: { fontSize: 14, lineHeight: 22, color: '#cbd5e1' },
 
   devices: { width: '100%', maxWidth: 380, marginTop: 14 },
   deviceBtn: {
