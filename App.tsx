@@ -57,6 +57,9 @@ type StatusResponse = {
   goal_met?: boolean | null;
   ports?: { name: string; watts: number }[];
   updated_at?: string;
+  ac_out_w: number;
+  extra_in_w: number;
+  usb_out_w: number;
 };
 
 type CargasResponse = { message?: string; error?: string };
@@ -404,6 +407,25 @@ export default function App() {
                 </View>
               </View>
 
+              {/* Fila inferior: CA / Batería / USB, con conectores curvos hacia el
+                  anillo central.
+                  GEOMETRY SPEC: sdd/power-flow-bottom-nodes/design §4 — viewBox
+                  0 0 300 130, hub (150,8), nodes x=50/150/250 y=122, path
+                  M nx,ny Q 150,65 150,8. KEEP IN SYNC WITH
+                  ecoflow_telegram_monitor.py .flow-connectors (and vice-versa). */}
+              <View style={styles.flowBottomWrap}>
+                <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectors}>
+                  <Path d="M 50,122 Q 150,65 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <Path d="M 150,122 Q 150,65 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
+                  <Path d="M 250,122 Q 150,65 150,8" stroke="#232c36" strokeWidth={2} fill="none" />
+                </Svg>
+                <View style={styles.iconsRowBottom}>
+                  <IconCircle emoji="🔌" state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
+                  <IconCircle emoji="🔋" state="neutral" watts={`${status.extra_in_w ?? 0} W`} name="Batería" />
+                  <IconCircle emoji="🔌" state="neutral" watts={`${status.usb_out_w ?? 0} W`} name="USB" />
+                </View>
+              </View>
+
               {/* ETA box */}
               {status.eta_text || status.goal_label ? (
                 <View style={styles.etaBox}>
@@ -515,6 +537,9 @@ const styles = StyleSheet.create({
   iconWatts: { fontSize: 12, color: COLORS.dim, marginTop: 5, fontVariant: ['tabular-nums'] },
   iconDir: { fontSize: 11, marginTop: 1, color: COLORS.dim, height: 14 },
   iconName: { fontSize: 10, color: COLORS.faint, marginTop: 2, letterSpacing: 0.3, textTransform: 'uppercase' },
+  flowBottomWrap: { width: 300, maxWidth: '100%', alignSelf: 'center', paddingTop: 122 },
+  flowConnectors: { position: 'absolute', top: 0, left: 0 },
+  iconsRowBottom: { width: 300, maxWidth: 300, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-around' },
 
   ringWrap: { width: 240, height: 240, marginVertical: 6, alignItems: 'center', justifyContent: 'center' },
   ringInner: {
