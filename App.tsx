@@ -756,7 +756,7 @@ export default function App() {
     </View>
   ) : null;
 
-  // Estado de carga: tocable, mismo patrón que "Qué tenés encendido" pero
+  // Estado de carga: tocable, mismo patrón que "Qué tienes encendido" pero
   // apuntando a /api/devices/charged (mirroring web dashboard).
   const estadoCargaSection = devices.some((d) => d.charged != null) ? (
     <View style={styles.devices}>
@@ -783,7 +783,7 @@ export default function App() {
   // Dispositivos
   const dispositivosSection = devices.length > 0 ? (
     <View style={styles.devices}>
-      <Text style={styles.sectionTitle}>Qué tenés encendido</Text>
+      <Text style={styles.sectionTitle}>Qué tienes encendido</Text>
       {devices.map((d) => (
         <Pressable
           key={d.key}
