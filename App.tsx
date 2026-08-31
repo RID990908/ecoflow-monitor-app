@@ -25,6 +25,15 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 const API_BASE = 'https://ecoflow-monitor-production.up.railway.app';
 
+// Mismo umbral que NOISE_FLOOR_W del lado Python (ecoflow_telegram_monitor.py):
+// por debajo de esto se considera ruido de medición, no transferencia real.
+const NOISE_FLOOR_W = 5;
+// Umbrales de color del ring principal (rojo/amarillo/verde). Mismos valores
+// que RING_RED_MAX_PCT/RING_YELLOW_MAX_PCT en el dashboard web — si cambian
+// acá, cambiarlos ahí también para que no queden desincronizados.
+const RING_RED_MAX_PCT = 10;
+const RING_YELLOW_MAX_PCT = 20;
+
 // A partir de este ancho (iPad en cualquier orientación, tablets chicas
 // incluidas) se activa el layout de 3 columnas — ver `isTablet` en App().
 // useWindowDimensions() (a diferencia de Dimensions.get) es reactivo: se
@@ -89,8 +98,8 @@ type DevicesResponse = { devices: Device[] };
 type FlowState = 'neutral' | 'charging' | 'discharging';
 
 function batteryFlow(netW: number | null | undefined): { state: FlowState } {
-  if (netW == null || (netW > -5 && netW < 5)) return { state: 'neutral' };
-  if (netW > 5) return { state: 'charging' };
+  if (netW == null || (netW > -NOISE_FLOOR_W && netW < NOISE_FLOOR_W)) return { state: 'neutral' };
+  if (netW > NOISE_FLOOR_W) return { state: 'charging' };
   return { state: 'discharging' };
 }
 
@@ -548,15 +557,15 @@ export default function App() {
   }, [loadStatus, loadCargas, loadDevices]);
 
   const pct = status?.percent ?? 0;
-  const ringColor = pct <= 10 ? COLORS.red : pct <= 20 ? COLORS.yellow : COLORS.green;
+  const ringColor = pct <= RING_RED_MAX_PCT ? COLORS.red : pct <= RING_YELLOW_MAX_PCT ? COLORS.yellow : COLORS.green;
   const acFlow: FlowState = status?.has_ac ? 'charging' : 'neutral';
-  const solarFlow: FlowState = (status?.pv_w ?? 0) > 5 ? 'charging' : 'neutral';
+  const solarFlow: FlowState = (status?.pv_w ?? 0) > NOISE_FLOOR_W ? 'charging' : 'neutral';
 
   // Wattage actual de cada nodo -> decide si su línea conectora se anima.
-  const acTopActive = (status?.ac_w ?? 0) > 5;
-  const solarActive = (status?.pv_w ?? 0) > 5;
-  const acOutActive = (status?.ac_out_w ?? 0) > 5;
-  const usbActive = (status?.usb_out_w ?? 0) > 5;
+  const acTopActive = (status?.ac_w ?? 0) > NOISE_FLOOR_W;
+  const solarActive = (status?.pv_w ?? 0) > NOISE_FLOOR_W;
+  const acOutActive = (status?.ac_out_w ?? 0) > NOISE_FLOOR_W;
+  const usbActive = (status?.usb_out_w ?? 0) > NOISE_FLOOR_W;
 
   // Nodo lateral derecho (batería extra/expansión): solo extra_in_w O
   // extra_out_w es distinto de cero a la vez (nunca ambos, confirmado en
@@ -564,8 +573,8 @@ export default function App() {
   // batería->ring en dirección de flujo real; carga (extra_in_w) = verde.
   const extraInW = status?.extra_in_w ?? 0;
   const extraOutW = status?.extra_out_w ?? 0;
-  const lateralDischarging = extraOutW > 5;
-  const lateralCharging = !lateralDischarging && extraInW > 5;
+  const lateralDischarging = extraOutW > NOISE_FLOOR_W;
+  const lateralCharging = !lateralDischarging && extraInW > NOISE_FLOOR_W;
   const lateralW = lateralDischarging ? extraOutW : extraInW;
   const lateralState: FlowState = lateralDischarging ? 'discharging' : lateralCharging ? 'charging' : 'neutral';
 
@@ -573,8 +582,8 @@ export default function App() {
   // delta2_charge_w/delta2_discharge_w (derivados de delta2_net_w).
   const delta2InW = status?.delta2_charge_w ?? 0;
   const delta2OutW = status?.delta2_discharge_w ?? 0;
-  const delta2Discharging = delta2OutW > 5;
-  const delta2Charging = !delta2Discharging && delta2InW > 5;
+  const delta2Discharging = delta2OutW > NOISE_FLOOR_W;
+  const delta2Charging = !delta2Discharging && delta2InW > NOISE_FLOOR_W;
   const delta2W = delta2Discharging ? delta2OutW : delta2InW;
   const delta2State: FlowState = delta2Discharging ? 'discharging' : delta2Charging ? 'charging' : 'neutral';
 
