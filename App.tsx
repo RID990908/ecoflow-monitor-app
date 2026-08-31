@@ -6,6 +6,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -57,6 +58,11 @@ type StatusResponse = {
   goal_met?: boolean | null;
   ports?: { name: string; watts: number }[];
   updated_at?: string;
+  ecoplay_battery_wh?: number;
+  ecoplay_watts_min?: number;
+  ecoplay_watts_max?: number;
+  ecoplay_target_hour?: number;
+  ecoplay_target_minute?: number;
 };
 
 type CargasResponse = { message?: string; error?: string };
@@ -228,6 +234,58 @@ function formatCargas(raw: string): string {
   return raw.replace(/\*/g, '');
 }
 
+// Calculadora de "a qué hora pasar la Ecoplay a su batería propia" — un UPS
+// aparte del EcoFlow que el bot no mide, así que el % lo escribe la persona
+// a mano. La capacidad y el rango de watts vienen de /api/status
+// (ecoplay_battery_wh, etc. — mismas constantes que usa /ecoplay por
+// Telegram) para no duplicarlas acá.
+type EcoplayConfig = {
+  batteryWh: number;
+  wattsMin: number;
+  wattsMax: number;
+  targetHour: number;
+  targetMinute: number;
+};
+
+const DEFAULT_ECOPLAY_CONFIG: EcoplayConfig = {
+  batteryWh: 484,
+  wattsMin: 35,
+  wattsMax: 45,
+  targetHour: 7,
+  targetMinute: 30,
+};
+
+function fmtHM(hours: number): string {
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return `${h}h ${m}m`;
+}
+
+function fmtTime(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function computeEcoplaySchedule(pct: number, targetHour: number, targetMinute: number, cfg: EcoplayConfig) {
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(targetHour, targetMinute, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+  const hoursNeeded = (target.getTime() - now.getTime()) / 3600000;
+  const availableWh = (cfg.batteryWh * pct) / 100;
+  const worstHours = availableWh / cfg.wattsMax; // más consumo = dura menos
+  const bestHours = availableWh / cfg.wattsMin; // menos consumo = dura más
+  return {
+    target,
+    hoursNeeded,
+    availableWh,
+    worstHours,
+    bestHours,
+    worstOn: new Date(target.getTime() - worstHours * 3600000),
+    bestOn: new Date(target.getTime() - bestHours * 3600000),
+    enough: worstHours >= hoursNeeded,
+  };
+}
+
 export default function App() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [cargas, setCargas] = useState<string>('');
@@ -235,7 +293,28 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [live, setLive] = useState<'ok' | 'stale'>('stale');
   const [updatedLabel, setUpdatedLabel] = useState('Conectando…');
+  const [ecoplayPct, setEcoplayPct] = useState('');
+  const [ecoplayTarget, setEcoplayTarget] = useState('');
   const lastSuccessAt = useRef<number | null>(null);
+
+  // localStorage solo existe en la versión web (react-native-web) — en
+  // Android/iOS este effect no hace nada, se pierde el % al cerrar la app.
+  useEffect(() => {
+    try {
+      const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('ecoplayPct') : null;
+      if (saved != null) setEcoplayPct(saved);
+    } catch {
+      // localStorage puede tirar en un navegador con storage bloqueado
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (typeof localStorage !== 'undefined' && ecoplayPct) localStorage.setItem('ecoplayPct', ecoplayPct);
+    } catch {
+      // no crítico
+    }
+  }, [ecoplayPct]);
 
   // Por default expo-updates solo baja el update nuevo en segundo plano y lo
   // aplica en el SIGUIENTE arranque en frío (no en el actual) — así que un
@@ -340,6 +419,27 @@ export default function App() {
   const acFlow: FlowState = status?.has_ac ? 'charging' : 'neutral';
   const extraFlow = batteryFlow(status?.extra_net_w);
   const solarFlow: FlowState = (status?.pv_w ?? 0) > 5 ? 'charging' : 'neutral';
+
+  const ecoplayConfig: EcoplayConfig =
+    status?.ecoplay_battery_wh != null
+      ? {
+          batteryWh: status.ecoplay_battery_wh,
+          wattsMin: status.ecoplay_watts_min ?? DEFAULT_ECOPLAY_CONFIG.wattsMin,
+          wattsMax: status.ecoplay_watts_max ?? DEFAULT_ECOPLAY_CONFIG.wattsMax,
+          targetHour: status.ecoplay_target_hour ?? DEFAULT_ECOPLAY_CONFIG.targetHour,
+          targetMinute: status.ecoplay_target_minute ?? DEFAULT_ECOPLAY_CONFIG.targetMinute,
+        }
+      : DEFAULT_ECOPLAY_CONFIG;
+  const ecoplayDefaultTarget = `${String(ecoplayConfig.targetHour).padStart(2, '0')}:${String(ecoplayConfig.targetMinute).padStart(2, '0')}`;
+  const ecoplayTargetMatch = /^(\d{1,2}):(\d{2})$/.exec(ecoplayTarget.trim());
+  const [ecoplayTargetHour, ecoplayTargetMinute] = ecoplayTargetMatch
+    ? [parseInt(ecoplayTargetMatch[1], 10), parseInt(ecoplayTargetMatch[2], 10)]
+    : [ecoplayConfig.targetHour, ecoplayConfig.targetMinute];
+  const ecoplayPctNum = parseFloat(ecoplayPct.replace(',', '.'));
+  const ecoplaySchedule =
+    Number.isFinite(ecoplayPctNum) && ecoplayPctNum >= 0 && ecoplayPctNum <= 100
+      ? computeEcoplaySchedule(ecoplayPctNum, ecoplayTargetHour, ecoplayTargetMinute, ecoplayConfig)
+      : null;
 
   return (
     <SafeAreaProvider>
@@ -481,6 +581,69 @@ export default function App() {
             </View>
           )}
 
+          {/* Ecoplay — batería propia (UPS aparte del EcoFlow, % a mano) */}
+          <View style={styles.ecoplay}>
+            <Text style={styles.sectionTitle}>📡 Ecoplay — batería propia</Text>
+            <View style={styles.ecoplayBox}>
+              <View style={styles.ecoplayRow}>
+                <Text style={styles.ecoplayLabel}>% de su batería</Text>
+                <TextInput
+                  style={styles.ecoplayInput}
+                  keyboardType="numeric"
+                  placeholder="86"
+                  placeholderTextColor={COLORS.faint}
+                  value={ecoplayPct}
+                  onChangeText={setEcoplayPct}
+                />
+              </View>
+              <View style={styles.ecoplayRow}>
+                <Text style={styles.ecoplayLabel}>Aguantar hasta</Text>
+                <TextInput
+                  style={styles.ecoplayInput}
+                  placeholder={ecoplayDefaultTarget}
+                  placeholderTextColor={COLORS.faint}
+                  value={ecoplayTarget}
+                  onChangeText={setEcoplayTarget}
+                />
+              </View>
+              {ecoplaySchedule ? (
+                <>
+                  <Text style={styles.ecoplayResultText}>
+                    Con {ecoplayPctNum}% (≈{Math.round(ecoplaySchedule.availableWh)} Wh) y {ecoplayConfig.wattsMin}–
+                    {ecoplayConfig.wattsMax} W de consumo:
+                  </Text>
+                  <Text style={styles.ecoplayResultText}>
+                    • Peor caso ({ecoplayConfig.wattsMax} W): ~{fmtHM(ecoplaySchedule.worstHours)} de autonomía
+                  </Text>
+                  <Text style={styles.ecoplayResultText}>
+                    • Mejor caso ({ecoplayConfig.wattsMin} W): ~{fmtHM(ecoplaySchedule.bestHours)} de autonomía
+                  </Text>
+                  {ecoplaySchedule.enough ? (
+                    <Text style={[styles.ecoplayResultText, { color: COLORS.green, marginTop: 6 }]}>
+                      ✅ Ya la podés pasar a esa batería: llega hasta las {fmtTime(ecoplaySchedule.target)} con{' '}
+                      {fmtHM(ecoplaySchedule.worstHours - ecoplaySchedule.hoursNeeded)} de margen incluso en el peor caso.
+                    </Text>
+                  ) : (
+                    <>
+                      <Text style={[styles.ecoplayResultText, { color: COLORS.yellow, marginTop: 6 }]}>
+                        🕒 No la pases antes de las {fmtTime(ecoplaySchedule.worstOn)} (peor caso) para que aguante
+                        hasta las {fmtTime(ecoplaySchedule.target)}.
+                      </Text>
+                      <Text style={styles.ecoplayResultText}>
+                        En el mejor caso alcanzaría desde las {fmtTime(ecoplaySchedule.bestOn)}.
+                      </Text>
+                    </>
+                  )}
+                </>
+              ) : (
+                <Text style={styles.ecoplayResultText}>Poné el % de la batería propia de la Ecoplay.</Text>
+              )}
+              <Text style={styles.ecoplayNote}>
+                No es la Delta 2 ni la batería extra — es el UPS aparte de la Ecoplay, así que el % se escribe a mano.
+              </Text>
+            </View>
+          </View>
+
           <View style={styles.updatedRow}>
             <View style={[styles.liveDot, { backgroundColor: live === 'ok' ? COLORS.green : '#ef4444' }]} />
             <Text style={styles.updatedText}>{updatedLabel}</Text>
@@ -569,6 +732,17 @@ const styles = StyleSheet.create({
   deviceBtnOff: { backgroundColor: COLORS.card, borderColor: COLORS.border },
   deviceBtnName: { fontSize: 14, color: '#cbd5e1' },
   deviceState: { fontWeight: '700', fontSize: 12, letterSpacing: 0.5 },
+
+  ecoplay: { width: '100%', maxWidth: 380, marginTop: 14 },
+  ecoplayBox: { backgroundColor: COLORS.card, borderColor: COLORS.border, borderWidth: 1, borderRadius: 10, padding: 14 },
+  ecoplayRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  ecoplayLabel: { fontSize: 13, color: COLORS.dim },
+  ecoplayInput: {
+    backgroundColor: COLORS.bg, borderColor: COLORS.border, borderWidth: 1, borderRadius: 8,
+    color: COLORS.text, fontSize: 14, paddingVertical: 6, paddingHorizontal: 10, width: 90, textAlign: 'right',
+  },
+  ecoplayResultText: { fontSize: 13, lineHeight: 20, color: '#cbd5e1' },
+  ecoplayNote: { fontSize: 11, color: COLORS.faint, marginTop: 8 },
 
   updatedRow: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
   liveDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
