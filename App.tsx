@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import * as Updates from 'expo-updates';
 
 const API_BASE = 'https://ecoflow-monitor-production.up.railway.app';
 
@@ -235,6 +236,26 @@ export default function App() {
   const [live, setLive] = useState<'ok' | 'stale'>('stale');
   const [updatedLabel, setUpdatedLabel] = useState('Conectando…');
   const lastSuccessAt = useRef<number | null>(null);
+
+  // Por default expo-updates solo baja el update nuevo en segundo plano y lo
+  // aplica en el SIGUIENTE arranque en frío (no en el actual) — así que un
+  // cambio recién publicado no se ve hasta cerrar y abrir la app dos veces.
+  // Acá se chequea y, si hay uno disponible, se baja y se recarga sola en
+  // caliente para verlo ya en el primer reinicio.
+  useEffect(() => {
+    if (__DEV__ || !Updates.isEnabled) return;
+    (async () => {
+      try {
+        const check = await Updates.checkForUpdateAsync();
+        if (check.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch {
+        // sin conexión o falló el chequeo: sigue con el bundle que ya tiene
+      }
+    })();
+  }, []);
 
   const loadStatus = useCallback(async () => {
     try {
