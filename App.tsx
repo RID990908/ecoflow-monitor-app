@@ -448,6 +448,27 @@ export default function App() {
     }
   }, [loadDevices]);
 
+  // Mismo patrón que toggleDevice, apuntando a /api/devices/charged. Caso
+  // especial ecoplay: pasar a "cargada" en web abre un modal de % (fuente de
+  // verdad real) que Expo todavía no tiene — acá se hace toggle directo
+  // también para ecoplay, igual que el resto (seguimiento pendiente: portar
+  // el modal de % a Expo es un cambio más grande, fuera de este alcance).
+  const toggleCharged = useCallback(async (key: string, settingCharged: boolean) => {
+    setDevices((prev) => prev.map((d) => (d.key === key ? { ...d, charged: settingCharged } : d)));
+    try {
+      const res = await fetch(`${API_BASE}/api/devices/charged`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device: key, charged: settingCharged }),
+      });
+      const data: DevicesResponse = await res.json();
+      if (data.devices) setDevices(data.devices);
+      if (key === 'ecoplay') loadCargas();
+    } catch {
+      loadDevices();
+    }
+  }, [loadDevices, loadCargas]);
+
   useEffect(() => {
     loadStatus();
     loadCargas();
@@ -679,15 +700,17 @@ export default function App() {
     </View>
   ) : null;
 
-  // Estado de carga: solo lectura, se marca por Telegram (/cargado, /descargado)
+  // Estado de carga: tocable, mismo patrón que "Qué tenés encendido" pero
+  // apuntando a /api/devices/charged (mirroring web dashboard).
   const estadoCargaSection = devices.some((d) => d.charged != null) ? (
     <View style={styles.devices}>
       <Text style={styles.sectionTitle}>Estado de carga</Text>
       {devices
         .filter((d) => d.charged != null)
         .map((d) => (
-          <View
+          <Pressable
             key={d.key}
+            onPress={() => toggleCharged(d.key, !d.charged)}
             style={[styles.deviceBtn, d.charged ? styles.deviceBtnOn : styles.deviceBtnOff]}
           >
             <Text style={styles.deviceBtnName}>
@@ -696,7 +719,7 @@ export default function App() {
             <Text style={[styles.deviceState, { color: d.charged ? COLORS.green : COLORS.faint }]}>
               {d.charged ? '🔋 cargada' : '🪫 descargada'}
             </Text>
-          </View>
+          </Pressable>
         ))}
     </View>
   ) : null;
