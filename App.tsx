@@ -74,6 +74,14 @@ function flowColor(state: FlowState) {
   return state === 'charging' ? COLORS.green : state === 'discharging' ? COLORS.red : COLORS.faint;
 }
 
+// La meta y "se va a cumplir" ya se muestran arriba en la caja de eta junto
+// con "dura hasta las X" — se recortan acá del texto de Gestión de cargas
+// para no repetirlas dos veces en la misma pantalla.
+function stripMeta(msg: string): string {
+  const idx = msg.indexOf('\n\n🎯 Meta:');
+  return idx === -1 ? msg : msg.slice(0, idx);
+}
+
 // Mismo shape que el ícono de batería del dashboard web (un rect + terminal + relleno).
 function BatteryIcon({ state, size = 15 }: { state: FlowState; size?: number }) {
   const color = flowColor(state);
@@ -244,7 +252,7 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE}/api/cargas`);
       const data: CargasResponse = await res.json();
-      setCargas(data.message ?? '');
+      setCargas(stripMeta(data.message ?? ''));
     } catch {
       // silencioso
     }
