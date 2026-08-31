@@ -690,9 +690,9 @@ export default function App() {
   ) : null;
 
   // ETA box ("Llena a las...") extraída como sección propia (antes vivía
-  // adentro de centerFlow) para poder reubicarla en la columna izquierda del
-  // layout de iPad — en mobile se sigue renderizando justo después de
-  // centerFlow, mismo lugar de siempre.
+  // adentro de centerFlow) para poder reubicarla debajo de "Estado de
+  // carga" en la columna derecha del layout de iPad — en mobile se sigue
+  // renderizando justo después de centerFlow, mismo lugar de siempre.
   const etaBoxSection = status && status.ready && (status.eta_text || status.goal_label) ? (
     <View style={styles.etaBox}>
       {status.eta_text ? (
@@ -801,7 +801,6 @@ export default function App() {
               <View style={styles.tabletColLeft}>
                 {batteriesSection}
                 {dispositivosSection}
-                {etaBoxSection}
               </View>
               <View style={styles.tabletColCenter}>
                 {notReadyCard}
@@ -810,6 +809,7 @@ export default function App() {
               </View>
               <View style={styles.tabletColRight}>
                 {estadoCargaSection}
+                {etaBoxSection}
               </View>
             </View>
           ) : (
