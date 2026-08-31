@@ -252,10 +252,10 @@ function LateralHook({
   discharging: boolean;
   dashOffset: Animated.AnimatedInterpolation<string | number>;
 }) {
-  const chargePath = side === 'right' ? 'M 0,0 L 54,0 Q 62,0 62,8' : 'M 0,0 L -54,0 Q -62,0 -62,8';
-  const dischargePath = side === 'right' ? 'M 62,8 Q 62,0 54,0 L 0,0' : 'M -62,8 Q -62,0 -54,0 L 0,0';
+  const chargePath = side === 'right' ? 'M 0,0 L 54,0 Q 62,0 62,8 L 62,38' : 'M 0,0 L -54,0 Q -62,0 -62,8 L -62,38';
+  const dischargePath = side === 'right' ? 'M 62,38 L 62,8 Q 62,0 54,0 L 0,0' : 'M -62,38 L -62,8 Q -62,0 -54,0 L 0,0';
   return (
-    <Svg width={64} height={10} viewBox="0 0 64 10" style={styles.lateralSvg}>
+    <Svg width={64} height={40} viewBox="0 0 64 40" style={styles.lateralSvg}>
       <Path d={chargePath} stroke="#232c36" strokeWidth={2} fill="none" />
       <AnimatedPath
         d={chargePath}
@@ -823,8 +823,8 @@ const styles = StyleSheet.create({
   lateralOverlayRight: { position: 'absolute', left: 240, top: 120, width: 0, height: 0 },
   lateralOverlayLeft: { position: 'absolute', left: 0, top: 120, width: 0, height: 0 },
   lateralSvg: { overflow: 'visible' },
-  lateralIconRight: { position: 'absolute', left: 34, top: -12, width: 56, alignItems: 'center' },
-  lateralIconLeft: { position: 'absolute', left: -90, top: -12, width: 56, alignItems: 'center' },
+  lateralIconRight: { position: 'absolute', left: 34, top: 18, width: 56, alignItems: 'center' },
+  lateralIconLeft: { position: 'absolute', left: -90, top: 18, width: 56, alignItems: 'center' },
   lateralIconCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   lateralIconWatts: { fontSize: 11, color: COLORS.dim, marginTop: 3, fontVariant: ['tabular-nums'] },
   lateralIconName: { fontSize: 9, color: COLORS.faint, marginTop: 2, letterSpacing: 0.3, textTransform: 'uppercase' },
