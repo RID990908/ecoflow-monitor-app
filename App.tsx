@@ -3,12 +3,14 @@ import type { ReactNode } from 'react';
 import {
   Animated,
   Easing,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -86,10 +88,10 @@ type DevicesResponse = { devices: Device[] };
 
 type FlowState = 'neutral' | 'charging' | 'discharging';
 
-function batteryFlow(netW: number | null | undefined): { state: FlowState; suffix: string } {
-  if (netW == null || (netW > -5 && netW < 5)) return { state: 'neutral', suffix: '' };
-  if (netW > 5) return { state: 'charging', suffix: ` (${Math.round(netW)} W)` };
-  return { state: 'discharging', suffix: ` (${Math.abs(Math.round(netW))} W)` };
+function batteryFlow(netW: number | null | undefined): { state: FlowState } {
+  if (netW == null || (netW > -5 && netW < 5)) return { state: 'neutral' };
+  if (netW > 5) return { state: 'charging' };
+  return { state: 'discharging' };
 }
 
 function flowColor(state: FlowState) {
@@ -302,7 +304,6 @@ function BatteryRow({
   remain?: { charging: boolean; text: string } | null;
 }) {
   const flow = batteryFlow(netW);
-  const labelText = flow.state === 'charging' ? 'Carga' : flow.state === 'discharging' ? 'Descarga' : 'Carga';
   const remainColor = remain ? (remain.charging ? COLORS.green : COLORS.red) : undefined;
   return (
     <View style={styles.batteryRow}>
@@ -310,16 +311,15 @@ function BatteryRow({
         <BatteryIcon state={flow.state} />
         <View>
           <Text style={styles.batteryRowNameText}>{label}</Text>
-          <View style={styles.batteryRowSubRow}>
-            <Text style={styles.batteryRowSubText}>{labelText}</Text>
-            {remain ? (
-              <Text style={[styles.batteryRowRemain, { color: remainColor }]}> · {remain.text}</Text>
-            ) : null}
-          </View>
+          {remain ? (
+            <View style={styles.batteryRowSubRow}>
+              <Text style={[styles.batteryRowRemain, { color: remainColor }]}>{remain.text}</Text>
+            </View>
+          ) : null}
         </View>
       </View>
       <Text style={[styles.batteryRowVal, { color: flow.state === 'neutral' ? COLORS.text : flowColor(flow.state) }]}>
-        {pct.toFixed(1)}%{flow.suffix}
+        {pct.toFixed(1)}%
       </Text>
     </View>
   );
@@ -341,6 +341,9 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [live, setLive] = useState<'ok' | 'stale'>('stale');
   const [updatedLabel, setUpdatedLabel] = useState('Conectando…');
+  const [ecoplayModalVisible, setEcoplayModalVisible] = useState(false);
+  const [ecoplayPctInput, setEcoplayPctInput] = useState('');
+  const [ecoplayModalError, setEcoplayModalError] = useState('');
   const lastSuccessAt = useRef<number | null>(null);
 
   // Offset animado compartido para el "flujo" de las líneas conectoras
@@ -449,11 +452,16 @@ export default function App() {
   }, [loadDevices]);
 
   // Mismo patrón que toggleDevice, apuntando a /api/devices/charged. Caso
-  // especial ecoplay: pasar a "cargada" en web abre un modal de % (fuente de
-  // verdad real) que Expo todavía no tiene — acá se hace toggle directo
-  // también para ecoplay, igual que el resto (seguimiento pendiente: portar
-  // el modal de % a Expo es un cambio más grande, fuera de este alcance).
+  // especial ecoplay: pasar a "cargada" abre el modal de % (fuente de verdad
+  // real, igual que en web) en vez de togglear directo; pasar a "descargada"
+  // sí es un toggle directo (el backend ya sincroniza ECOPLAY_LAST_PCT=0).
   const toggleCharged = useCallback(async (key: string, settingCharged: boolean) => {
+    if (key === 'ecoplay' && settingCharged) {
+      setEcoplayModalError('');
+      setEcoplayPctInput('');
+      setEcoplayModalVisible(true);
+      return;
+    }
     setDevices((prev) => prev.map((d) => (d.key === key ? { ...d, charged: settingCharged } : d)));
     try {
       const res = await fetch(`${API_BASE}/api/devices/charged`, {
@@ -468,6 +476,45 @@ export default function App() {
       loadDevices();
     }
   }, [loadDevices, loadCargas]);
+
+  // Modal de % de Ecoplay (POST /api/ecoplay), único trigger: el badge de
+  // Ecoplay en "Estado de carga" cuando está descargada (ver toggleCharged).
+  const submitEcoplayPct = useCallback(async () => {
+    const pct = parseInt(ecoplayPctInput, 10);
+    if (ecoplayPctInput === '' || Number.isNaN(pct) || pct < 0 || pct > 100) {
+      setEcoplayModalError('Ingresá un % entero entre 0 y 100.');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/ecoplay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pct }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEcoplayModalError(data.error || 'Error');
+        return;
+      }
+      // Informar un % siempre implica que Ecoplay quedó "cargada" (es la
+      // fuente de verdad real), así que sincronizamos el badge acá también.
+      try {
+        const chargedRes = await fetch(`${API_BASE}/api/devices/charged`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ device: 'ecoplay', charged: true }),
+        });
+        const chargedData: DevicesResponse = await chargedRes.json();
+        if (chargedData.devices) setDevices(chargedData.devices);
+      } catch {
+        loadDevices();
+      }
+      loadCargas();
+      setEcoplayModalVisible(false);
+    } catch {
+      setEcoplayModalError('No se pudo conectar con el servidor.');
+    }
+  }, [ecoplayPctInput, loadDevices, loadCargas]);
 
   useEffect(() => {
     loadStatus();
@@ -811,6 +858,37 @@ export default function App() {
               para mobile, donde sigue yendo al final como siempre. */}
           {!isTablet && updatedRowSection}
         </ScrollView>
+
+        <Modal
+          visible={ecoplayModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setEcoplayModalVisible(false)}
+        >
+          <Pressable style={styles.modalBackdrop} onPress={() => setEcoplayModalVisible(false)}>
+            <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+              <Text style={styles.modalTitle}>Ecoplay: % de batería propia</Text>
+              <TextInput
+                style={styles.modalInput}
+                keyboardType="number-pad"
+                placeholder="0-100"
+                placeholderTextColor={COLORS.faint}
+                value={ecoplayPctInput}
+                onChangeText={setEcoplayPctInput}
+                maxLength={3}
+              />
+              {ecoplayModalError ? <Text style={styles.modalError}>{ecoplayModalError}</Text> : null}
+              <View style={styles.modalActions}>
+                <Pressable style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={submitEcoplayPct}>
+                  <Text style={styles.modalBtnPrimaryText}>Aceptar</Text>
+                </Pressable>
+                <Pressable style={styles.modalBtn} onPress={() => setEcoplayModalVisible(false)}>
+                  <Text style={styles.modalBtnText}>Cerrar</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -824,6 +902,23 @@ const styles = StyleSheet.create({
     padding: 16, width: '100%', maxWidth: 380,
   },
   dimText: { color: COLORS.dim, fontSize: 14 },
+
+  // Modal de % de Ecoplay — mismo estilo dark que .modal-box/.eta-box en
+  // web (bg #141b22, radios, colores de acento), sin inventar un lenguaje
+  // visual nuevo.
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalBox: { width: '100%', maxWidth: 320, backgroundColor: COLORS.card, borderColor: COLORS.border, borderWidth: 1, borderRadius: 14, padding: 20 },
+  modalTitle: { color: COLORS.text, fontSize: 16, fontWeight: '600', marginBottom: 12 },
+  modalInput: {
+    borderColor: COLORS.border, borderWidth: 1, borderRadius: 8, color: COLORS.text,
+    fontSize: 16, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8,
+  },
+  modalError: { color: COLORS.red, fontSize: 13, marginBottom: 8 },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  modalBtn: { flex: 1, borderRadius: 8, borderColor: COLORS.border, borderWidth: 1, paddingVertical: 10, alignItems: 'center' },
+  modalBtnPrimary: { backgroundColor: COLORS.green, borderColor: COLORS.green },
+  modalBtnText: { color: COLORS.text, fontSize: 15 },
+  modalBtnPrimaryText: { color: '#0b0f14', fontSize: 15, fontWeight: '600' },
 
   // Layout tablet/iPad — ver comentario junto a `isTablet` en el render.
   // alignItems:'flex-start' (no 'stretch') es lo que mantiene la altura de
@@ -902,7 +997,6 @@ const styles = StyleSheet.create({
   batteryRowName: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   batteryRowNameText: { fontSize: 14, color: '#cbd5e1' },
   batteryRowSubRow: { flexDirection: 'row', alignItems: 'center' },
-  batteryRowSubText: { fontSize: 12, color: COLORS.faint },
   batteryRowRemain: { fontSize: 12, fontWeight: '600' },
   batteryRowVal: { fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'] },
 
