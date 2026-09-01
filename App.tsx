@@ -319,7 +319,7 @@ function BatteryRow({
     <View style={styles.batteryRow}>
       <View style={styles.batteryRowName}>
         <BatteryIcon state={flow.state} />
-        <View>
+        <View style={styles.batteryRowNameCol}>
           <Text style={styles.batteryRowNameText}>{label}</Text>
           {remain ? (
             <View style={styles.batteryRowSubRow}>
@@ -762,7 +762,7 @@ export default function App() {
           onPress={() => toggleDevice(d.key, !d.on)}
           style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}
         >
-          <Text style={styles.deviceBtnName}>
+          <Text style={[styles.deviceBtnName, styles.deviceBtnNameCol]}>
             {d.fits != null ? (d.fits ? '🟢 ' : '🔴 ') : ''}
             {d.emoji} {d.label} · {d.watts}W
             {d.on && d.fits === false && d.deficit_w ? (
@@ -985,10 +985,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card, borderRadius: 14, padding: 14, marginTop: 8,
   },
   batteryRowName: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  batteryRowNameCol: { flexShrink: 1 },
   batteryRowNameText: { fontSize: 14, color: '#cbd5e1' },
   batteryRowSubRow: { flexDirection: 'row', alignItems: 'center' },
   batteryRowRemain: { fontSize: 12, fontWeight: '600' },
-  batteryRowVal: { fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  batteryRowVal: { fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'], flexShrink: 0, marginLeft: 6 },
 
   sectionTitle: { fontSize: 13, color: COLORS.dim, marginBottom: 6 },
 
