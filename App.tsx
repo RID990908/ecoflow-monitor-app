@@ -195,7 +195,6 @@ function IconCircle({
   watts,
   dirLabel,
   name,
-  note,
 }: {
   emoji?: string;
   icon?: ReactNode;
@@ -203,10 +202,6 @@ function IconCircle({
   watts: string;
   dirLabel?: string;
   name: string;
-  // note: subtítulo chico opcional debajo del nombre — hoy solo lo usa el
-  // nodo AC ("hace Xh" desde la última vez que llegó corriente, antes vivía
-  // en la tarjeta de la derecha, movido acá a pedido del usuario).
-  note?: string;
 }) {
   const bg = state === 'charging' ? COLORS.chargingBg : state === 'discharging' ? COLORS.dischargingBg : '#1c232b';
   const dirColor = flowColor(state);
@@ -218,7 +213,6 @@ function IconCircle({
       <Text style={styles.iconWatts}>{watts}</Text>
       {dirLabel ? <Text style={[styles.iconDir, { color: dirColor }]}>{dirLabel}</Text> : <Text style={styles.iconDir}> </Text>}
       <Text style={styles.iconName}>{name}</Text>
-      {note ? <Text style={styles.iconNote}>{note}</Text> : null}
     </View>
   );
 }
@@ -586,6 +580,13 @@ export default function App() {
                 </View>
               </View>
 
+              {/* Última vez que llegó AC, formato corto ("hace Xh") — antes
+                  vivía en la tarjeta de la derecha, movida acá (entre el
+                  header de Entrada/Salida y la fila de íconos AC/Solar,
+                  centrada) a pedido del usuario, en vez de colgar de un
+                  ícono en particular. */}
+              <Text style={styles.lastAcShort}>{status.last_ac_short || 'sin registro'}</Text>
+
               {/* GEOMETRY SPEC (top, mirrored, manifold/elbow style):
                   sdd/power-flow-bottom-nodes/design §4 — viewBox 0 0 300 130,
                   hub (150,122) at the ring's top edge, nodes x=75/225 y=8
@@ -603,7 +604,7 @@ export default function App() {
                   (and vice-versa). */}
               <View style={styles.flowTopWrap}>
                 <View style={styles.iconsRowTop}>
-                  <IconCircle emoji="🔌" state={acFlow} watts={`${status.ac_w ?? 0} W`} dirLabel={status.has_ac ? 'Sí' : undefined} name="AC" note={status.last_ac_short || 'sin registro'} />
+                  <IconCircle emoji="🔌" state={acFlow} watts={`${status.ac_w ?? 0} W`} dirLabel={status.has_ac ? 'Sí' : undefined} name="AC" />
                   <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
                 </View>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectorsTop}>
@@ -912,7 +913,6 @@ const styles = StyleSheet.create({
   iconWatts: { fontSize: 12, color: COLORS.dim, marginTop: 5, fontVariant: ['tabular-nums'] },
   iconDir: { fontSize: 11, marginTop: 1, color: COLORS.dim, height: 14 },
   iconName: { fontSize: 10, color: COLORS.faint, marginTop: 2, letterSpacing: 0.3, textTransform: 'uppercase' },
-  iconNote: { fontSize: 10, color: COLORS.dim, marginTop: 2 },
   flowTopWrap: { width: 300, maxWidth: '100%', alignSelf: 'center', paddingBottom: 122 },
   iconsRowTop: { width: 300, maxWidth: 300, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-around' },
   flowConnectorsTop: { position: 'absolute', left: 0, bottom: 0 },
@@ -950,6 +950,7 @@ const styles = StyleSheet.create({
   pctSubLabel: { fontSize: 13, color: COLORS.dim, marginTop: 8 },
   pctSubDur: { fontSize: 22, color: '#e5e7eb', fontWeight: '700', marginTop: 2, fontVariant: ['tabular-nums'] },
   pctEta: { fontSize: 13, fontWeight: '600', marginTop: 4 },
+  lastAcShort: { fontSize: 11, color: COLORS.faint, textAlign: 'center', marginBottom: 6 },
 
   etaBox: {
     marginTop: 4, paddingVertical: 14, paddingHorizontal: 22, borderRadius: 16, backgroundColor: COLORS.card,
