@@ -906,10 +906,17 @@ const styles = StyleSheet.create({
   // Layout tablet/iPad — ver comentario junto a `isTablet` en el render.
   // alignItems:'flex-start' (no 'stretch') es lo que mantiene la altura de
   // cada columna desacoplada de sus hermanas.
+  // tabletColLeft/Right usan flex:1 con maxWidth (no un width fijo): así se
+  // achican para entrar en el ancho real disponible (ej. iPad en portrait,
+  // o el frame todavía no terminó de actualizar tras rotar) en vez de
+  // desbordar la pantalla y cortar texto en los bordes — el ancho fijo de
+  // 260+380+260+gaps (988pt) no entraba en anchos por debajo de ~1000pt.
+  // tabletColCenter se mantiene fijo en 380 porque envuelve el diagrama de
+  // tamaño fijo (ring 240 + SVGs de 300 de ancho).
   tabletRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', width: '100%', gap: 24 },
-  tabletColLeft: { flexDirection: 'column', width: 260 },
-  tabletColCenter: { flexDirection: 'column', alignItems: 'center', width: 380 },
-  tabletColRight: { flexDirection: 'column', width: 260 },
+  tabletColLeft: { flexDirection: 'column', flex: 1, minWidth: 140, maxWidth: 260 },
+  tabletColCenter: { flexDirection: 'column', alignItems: 'center', width: 380, flexShrink: 0 },
+  tabletColRight: { flexDirection: 'column', flex: 1, minWidth: 140, maxWidth: 260 },
 
   ioRow: { width: '100%', maxWidth: 380, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
   ioCol: { flex: 1 },
