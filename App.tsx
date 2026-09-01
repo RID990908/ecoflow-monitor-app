@@ -75,6 +75,7 @@ type StatusResponse = {
   eta_text?: string | null;
   eta_ok?: boolean | null;
   threshold_text?: string | null;
+  threshold_short?: string | null;
   last_ac_text?: string | null;
   last_ac_short?: string | null;
   remain_duration?: string | null;
@@ -195,7 +196,6 @@ function IconCircle({
   watts,
   dirLabel,
   name,
-  note,
 }: {
   emoji?: string;
   icon?: ReactNode;
@@ -203,11 +203,6 @@ function IconCircle({
   watts: string;
   dirLabel?: string;
   name: string;
-  // note: texto chico opcional entre el wattage y el nombre — hoy solo lo
-  // usa el nodo AC ("hace Xh"/"sin registro" desde la última vez que llegó
-  // corriente). Confirmado con el usuario en vivo: va PEGADO al nodo,
-  // entre el "0 W" y "AC", no como línea centrada aparte (intento previo).
-  note?: string;
 }) {
   const bg = state === 'charging' ? COLORS.chargingBg : state === 'discharging' ? COLORS.dischargingBg : '#1c232b';
   const dirColor = flowColor(state);
@@ -217,8 +212,7 @@ function IconCircle({
         {icon ?? <Text style={{ fontSize: 22 }}>{emoji}</Text>}
       </View>
       <Text style={styles.iconWatts}>{watts}</Text>
-      {dirLabel ? <Text style={[styles.iconDir, { color: dirColor }]}>{dirLabel}</Text> : <Text style={styles.iconDir}> </Text>}
-      {note ? <Text style={styles.iconNote}>{note}</Text> : null}
+      {dirLabel ? <Text style={[styles.iconDir, { color: dirColor }]}>{dirLabel}</Text> : null}
       <Text style={styles.iconName}>{name}</Text>
     </View>
   );
@@ -604,7 +598,18 @@ export default function App() {
                   (and vice-versa). */}
               <View style={styles.flowTopWrap}>
                 <View style={styles.iconsRowTop}>
-                  <IconCircle emoji="🔌" state={acFlow} watts={`${status.ac_w ?? 0} W`} dirLabel={status.has_ac ? 'Sí' : undefined} name="AC" note={status.last_ac_short || 'sin registro'} />
+                  {/* Reusa el slot de dirLabel (antes quedaba en blanco
+                      cuando has_ac es false — a diferencia de la web, que
+                      sí imprime "No" ahí) para mostrar "hace Xh"/"sin
+                      registro" sin agregar una fila nueva ni dejar espacio
+                      vacío. */}
+                  <IconCircle
+                    emoji="🔌"
+                    state={acFlow}
+                    watts={`${status.ac_w ?? 0} W`}
+                    dirLabel={status.has_ac ? 'Sí' : status.last_ac_short || 'sin registro'}
+                    name="AC"
+                  />
                   <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
                 </View>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectorsTop}>
@@ -634,6 +639,7 @@ export default function App() {
                       {status.eta_text}
                     </Text>
                   ) : null}
+                  {status.threshold_short ? <Text style={styles.pctThreshold}>{status.threshold_short}</Text> : null}
                 </View>
                 <View style={styles.lateralOverlayLeft}>
                   <LateralHook side="left" charging={delta2Charging} discharging={delta2Discharging} dashOffset={flowDashOffsetLateral} />
@@ -679,32 +685,16 @@ export default function App() {
   ) : null;
 
   // ETA box: antes mostraba "Llena a las" + (alerta de batería baja O
-  // última vez que llegó AC) + Meta. "Llena a las" se mudó al centro del
-  // aro (junto a Tiempo restante) y "última vez que llegó AC" se mudó al
-  // nodo AC (note="hace Xh") — ambos a pedido del usuario, para no repetir
-  // el mismo dato en dos lugares de la misma pantalla. Acá solo queda la
-  // alerta de batería baja (más urgente, no tiene otro lugar natural) y la
-  // Meta — ambas son alertas accionables, a diferencia de los otros dos
-  // datos que eran puramente informativos.
-  const etaBoxSection = status && status.ready && (status.threshold_text || status.goal_label) ? (
+  // última vez que llegó AC) + Meta. Las tres se mudaron al diagrama
+  // principal ("Llena a las" y la alerta de batería baja bajo Tiempo
+  // restante en el aro, "última vez que llegó AC" al nodo AC) a pedido del
+  // usuario, para no repetir el mismo dato en dos lugares de la misma
+  // pantalla. Acá solo queda la Meta.
+  const etaBoxSection = status && status.ready && status.goal_label ? (
     <View style={styles.etaBox}>
-      {status.threshold_text ? (
-        <View style={styles.etaSubRow}>
-          <BatteryIcon state="discharging" size={14} />
-          <Text style={styles.etaSubText}>{status.threshold_text}</Text>
-        </View>
-      ) : null}
-      {status.goal_label ? (
-        <Text
-          style={[
-            styles.etaGoal,
-            status.threshold_text ? styles.etaGoalWithBorder : null,
-            { color: status.goal_met ? COLORS.green : COLORS.red },
-          ]}
-        >
-          {status.goal_met ? '✅' : '⚠️'} Meta: {status.goal_floor}% para {status.goal_label} (proyectás {status.goal_projected?.toFixed(0)}%)
-        </Text>
-      ) : null}
+      <Text style={[styles.etaGoal, { color: status.goal_met ? COLORS.green : COLORS.red }]}>
+        {status.goal_met ? '✅' : '⚠️'} Meta: {status.goal_floor}% para {status.goal_label} (proyectás {status.goal_projected?.toFixed(0)}%)
+      </Text>
     </View>
   ) : null;
 
@@ -912,7 +902,6 @@ const styles = StyleSheet.create({
   iconCircle: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   iconWatts: { fontSize: 12, color: COLORS.dim, marginTop: 5, fontVariant: ['tabular-nums'] },
   iconDir: { fontSize: 11, marginTop: 1, color: COLORS.dim, height: 14 },
-  iconNote: { fontSize: 10, color: COLORS.dim, marginTop: 1 },
   iconName: { fontSize: 10, color: COLORS.faint, marginTop: 2, letterSpacing: 0.3, textTransform: 'uppercase' },
   flowTopWrap: { width: 300, maxWidth: '100%', alignSelf: 'center', paddingBottom: 122 },
   iconsRowTop: { width: 300, maxWidth: 300, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-around' },
@@ -951,18 +940,14 @@ const styles = StyleSheet.create({
   pctSubLabel: { fontSize: 13, color: COLORS.dim, marginTop: 8 },
   pctSubDur: { fontSize: 22, color: '#e5e7eb', fontWeight: '700', marginTop: 2, fontVariant: ['tabular-nums'] },
   pctEta: { fontSize: 13, fontWeight: '600', marginTop: 4 },
+  pctThreshold: { fontSize: 12, fontWeight: '600', marginTop: 3, color: COLORS.red },
 
   etaBox: {
     marginTop: 4, paddingVertical: 14, paddingHorizontal: 22, borderRadius: 16, backgroundColor: COLORS.card,
     alignItems: 'center', maxWidth: 340, width: '100%',
   },
-  etaSubRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  etaSubText: { fontSize: 13, color: COLORS.dim },
   etaGoal: {
     fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'], textAlign: 'center',
-  },
-  etaGoalWithBorder: {
-    marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#232c36',
   },
 
   sectionTitle: { fontSize: 13, color: COLORS.dim, marginBottom: 6 },
