@@ -122,17 +122,21 @@ function BatteryIcon({ state, size = 15 }: { state: FlowState; size?: number }) 
   );
 }
 
-// 3 aspas tipo hélice alrededor de un hub — mismo patrón de path repetido +
-// rotation/origin que ya usa PercentRing para el aro. bg oscuro perfora el
-// centro para que se vea el hub separado de las aspas.
+// Ventilador de mesa: aro exterior (outline, como la referencia del
+// usuario) + 3 aspas curvas + hub con punto central — mismo patrón de path
+// repetido + rotation/origin que ya usa PercentRing para el aro. Sin base:
+// a este tamaño (badge de ~15-26px) el pie del ventilador no se leería,
+// así que se deja solo la cabeza (aro + aspas), que es lo reconocible.
 function FanIcon({ color = COLORS.dim, size = 15 }: { color?: string; size?: number }) {
-  const blade = 'M12,12 C9,10.5 8,6.5 12,2 C16,6.5 15,10.5 12,12 Z';
+  const blade = 'M12,12 C7.5,11 5.5,7.5 8,3.5 C12,4.5 13,9 12,12 Z';
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx={12} cy={12} r={10.5} stroke={color} strokeWidth={1.4} fill="none" />
       <Path d={blade} fill={color} />
       <Path d={blade} fill={color} rotation={120} origin="12,12" />
       <Path d={blade} fill={color} rotation={240} origin="12,12" />
-      <Circle cx={12} cy={12} r={2} fill={COLORS.bg} />
+      <Circle cx={12} cy={12} r={2.3} fill={COLORS.bg} stroke={color} strokeWidth={1.2} />
+      <Circle cx={12} cy={12} r={0.8} fill={color} />
     </Svg>
   );
 }
@@ -155,16 +159,18 @@ function GroupIconBadge({ bg, size = 26, children }: { bg: string; size?: number
 // caen al emoji tal cual (fallback, no hay ningún otro grupo repetido hoy).
 function GroupHeaderIcon({ emoji }: { emoji: string }) {
   if (emoji === '🔋') {
+    // Sin badge circular ni fondo verde: solo la batería, corrida hacia
+    // arriba para que quede centrada con el título (a pedido del usuario).
     return (
-      <GroupIconBadge bg={COLORS.chargingBg}>
-        <BatteryIcon state="charging" size={11} />
-      </GroupIconBadge>
+      <View style={styles.groupBatteryIcon}>
+        <BatteryIcon state="charging" size={15} />
+      </View>
     );
   }
   if (emoji === '🌀') {
     return (
       <GroupIconBadge bg="#1c232b">
-        <FanIcon color={COLORS.dim} size={14} />
+        <FanIcon color={COLORS.dim} size={16} />
       </GroupIconBadge>
     );
   }
@@ -1170,12 +1176,15 @@ const styles = StyleSheet.create({
   // deviceGroup envuelve un tipo repetido (Ventiladores, Power banks): su
   // propio header colapsable, separado del título de sección.
   deviceGroup: { marginBottom: 8 },
-  // Fila del título de grupo: ícono (emoji o GroupIcon circular para Power
-  // bank) + texto, alineados por caja de flex en vez de línea base de texto.
+  // Fila del título de grupo: ícono (emoji, badge circular o batería suelta)
+  // + texto, alineados por caja de flex en vez de línea base de texto.
   groupTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0 },
   groupTitle: { fontSize: 13, color: '#cbd5e1', flexShrink: 1 },
   groupEmoji: { fontSize: 15 },
-  groupIconCircle: { backgroundColor: COLORS.chargingBg, alignItems: 'center', justifyContent: 'center' },
+  groupIconCircle: { alignItems: 'center', justifyContent: 'center' },
+  // Power bank: sin badge/fondo, solo la batería — translateY la sube para
+  // que quede centrada con el título en vez de pegada al borde inferior.
+  groupBatteryIcon: { transform: [{ translateY: -6 }] },
   // Header de grupo: mismo box (padding/borde/radio) que deviceBtn, para que
   // "Ventilador ×3"/"Power bank ×2" se vean como una fila más de la lista en
   // vez de texto suelto — se combina con deviceBtn/deviceBtnOn/deviceBtnOff
