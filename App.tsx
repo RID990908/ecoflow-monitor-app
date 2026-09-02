@@ -293,16 +293,20 @@ function TowerIcon({ color = COLORS.dim, size = 20 }: { color?: string; size?: n
   );
 }
 
-// Casa simple (techo a dos aguas + paredes + puertita rellena), mismo
-// estilo lineal que el resto — representa el consumo de la casa en el nodo
-// de salida de CA, en vez de repetir la torre (que es la fuente/entrada,
-// no adónde va la energía).
+// Casa con volumen (techo relleno sólido + paredes rellenas semi-
+// transparentes con contorno + puerta sólida + ventanita recortada), en vez
+// del estilo puramente lineal del primer intento — a pedido del usuario,
+// que la quería "menos lineal" y con más carácter (como se ve el emoji del
+// sol al lado). Sigue siendo un solo color (no hay paleta multicolor acá),
+// pero el relleno en dos intensidades del mismo tono le da profundidad en
+// vez de verse como un wireframe.
 function HouseIcon({ color = COLORS.dim, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path d="M4,11 L12,4 L20,11" stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M6,10 L6,20 L18,20 L18,10" stroke={color} strokeWidth={2} fill="none" strokeLinejoin="round" />
-      <Rect x={10.5} y={14} width={3} height={6} fill={color} />
+      <Path d="M3,11.5 L12,3.5 L21,11.5 L18.5,11.5 L18.5,9.8 L12,4.9 L5.5,9.8 L5.5,11.5 Z" fill={color} />
+      <Rect x={5.5} y={11} width={13} height={9} rx={1} fill={color} opacity={0.32} stroke={color} strokeWidth={1.2} />
+      <Rect x={10} y={14} width={4} height={6} rx={1} fill={color} />
+      <Rect x={6.5} y={13} width={2.6} height={2.6} rx={0.6} fill={COLORS.bg} />
     </Svg>
   );
 }
