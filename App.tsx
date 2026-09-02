@@ -877,9 +877,12 @@ export default function App() {
         </Text>
         {d.note ? <Text style={styles.deviceBtnNote}>{d.note}</Text> : null}
       </View>
-      <Text style={[styles.deviceState, { color: d.charged ? COLORS.green : COLORS.faint }]}>
-        {d.charged ? '🔋 cargada' : '🪫 descargada'}
-      </Text>
+      <View style={styles.deviceStateRow}>
+        <BatteryIcon state={d.charged ? 'charging' : 'neutral'} size={13} />
+        <Text style={[styles.deviceState, { color: d.charged ? COLORS.green : COLORS.faint }]}>
+          {d.charged ? 'cargada' : 'descargada'}
+        </Text>
+      </View>
     </Pressable>
   );
   const estadoCargaSection = chargeableDevices.length > 0 ? (
@@ -1213,6 +1216,7 @@ const styles = StyleSheet.create({
   deviceBtnNote: { fontSize: 12, color: COLORS.faint, marginTop: 2 },
   deficitText: { color: COLORS.red, fontWeight: '700', fontSize: 12 },
   deviceState: { fontWeight: '700', fontSize: 12, letterSpacing: 0.5 },
+  deviceStateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
 
   updatedRow: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
   liveDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
