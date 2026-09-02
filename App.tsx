@@ -795,19 +795,20 @@ export default function App() {
             // renderizada justo después, mismo lugar visual). "Gestión de
             // cargas" se sacó de acá: quedó redundante con el punto 🟢/🔴
             // que ahora se pega directo a cada fila de dispositivosSection.
+            // updatedRowSection va pegado debajo del diagrama (mismo lugar
+            // que en tablet, ver tabletColCenter) en vez de al final de
+            // todo, después de la lista de dispositivos — ahí quedaba
+            // perdido y lejos de lo que describe (el estado del diagrama
+            // que tiene arriba, no de "Qué tienes encendido").
             <>
               {notReadyCard}
               {centerFlow}
+              {updatedRowSection}
               {etaBoxSection}
               {estadoCargaSection}
               {dispositivosSection}
             </>
           )}
-
-          {/* En tablet, updatedRowSection ya se renderiza adentro de
-              tabletColCenter (debajo del diagrama) — acá solo hace falta
-              para mobile, donde sigue yendo al final como siempre. */}
-          {!isTablet && updatedRowSection}
         </ScrollView>
 
         <Modal
