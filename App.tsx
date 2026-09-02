@@ -126,13 +126,13 @@ function BatteryIcon({ state, size = 15 }: { state: FlowState; size?: number }) 
 // (Delta2/Extra/Ecoplay) están igual, o una fila de mini baterías por
 // dispositivo cuando el estado es mixto — mismo BatteryIcon reusado en dos
 // tamaños, sin duplicar el shape del ícono.
+// Si el grupo está uniforme (todo cargado o todo descargado) no hay nada
+// que señalar — no se muestra ícono. Solo aparece cuando el estado es
+// mixto, como alerta de "esto no está como el resto".
 function ChargeSummary({ devices }: { devices: Device[] }) {
-  if (devices.length === 0) return null;
   const allCharged = devices.every((d) => d.charged);
   const allDischarged = devices.every((d) => !d.charged);
-  if (allCharged || allDischarged) {
-    return <BatteryIcon state={allCharged ? 'charging' : 'discharging'} size={34} />;
-  }
+  if (devices.length === 0 || allCharged || allDischarged) return null;
   return (
     <View style={styles.summaryRow}>
       {devices.map((d) => (
@@ -145,13 +145,12 @@ function ChargeSummary({ devices }: { devices: Device[] }) {
 // Mismo patrón que ChargeSummary para "Qué tienes encendido": 1 bola grande
 // si todos los dispositivos están en el mismo estado, o mini bolas por
 // dispositivo cuando es mixto.
+// Mismo criterio que ChargeSummary: grupo uniforme (todo on o todo off) no
+// muestra nada, solo el estado mixto amerita el resumen de mini bolas.
 function PowerSummary({ devices }: { devices: Device[] }) {
-  if (devices.length === 0) return null;
   const allOn = devices.every((d) => d.on);
   const allOff = devices.every((d) => !d.on);
-  if (allOn || allOff) {
-    return <View style={[styles.summaryDotBig, { backgroundColor: allOn ? COLORS.green : COLORS.red }]} />;
-  }
+  if (devices.length === 0 || allOn || allOff) return null;
   return (
     <View style={styles.summaryRow}>
       {devices.map((d) => (
@@ -836,7 +835,14 @@ export default function App() {
           chargeRow(g.devices[0])
         ) : (
           <View key={g.key} style={styles.deviceGroup}>
-            <Pressable onPress={() => toggleGroup(`carga:${g.key}`)} style={styles.sectionHeaderRow} hitSlop={8}>
+            <Pressable
+              onPress={() => toggleGroup(`carga:${g.key}`)}
+              style={[
+                styles.sectionHeaderRow,
+                g.devices.every((d) => d.charged) ? styles.deviceBtnOn : styles.deviceBtnOff,
+              ]}
+              hitSlop={8}
+            >
               <Text style={styles.groupTitle}>
                 {g.emoji} {g.key} ×{g.devices.length}
               </Text>
@@ -879,7 +885,14 @@ export default function App() {
           powerRow(g.devices[0])
         ) : (
           <View key={g.key} style={styles.deviceGroup}>
-            <Pressable onPress={() => toggleGroup(`dispositivos:${g.key}`)} style={styles.sectionHeaderRow} hitSlop={8}>
+            <Pressable
+              onPress={() => toggleGroup(`dispositivos:${g.key}`)}
+              style={[
+                styles.sectionHeaderRow,
+                g.devices.every((d) => d.on) ? styles.deviceBtnOn : styles.deviceBtnOff,
+              ]}
+              hitSlop={8}
+            >
               <Text style={styles.groupTitle}>
                 {g.emoji} {g.key} ×{g.devices.length}
               </Text>
@@ -1103,18 +1116,20 @@ const styles = StyleSheet.create({
   // propio header colapsable, separado del título de sección.
   deviceGroup: { marginBottom: 8 },
   groupTitle: { fontSize: 13, color: '#cbd5e1', flexShrink: 1 },
-  // flexWrap en la fila del header de grupo: en tablet las columnas
-  // laterales se angostan a ~150px (tabletColCenter no cede, ver arriba) y
-  // título + mini-iconos + flecha no entran en una sola línea — con wrap el
-  // resumen baja a su propia línea en vez de solaparse/recortarse.
+  // Header de grupo: mismo box (padding/borde/radio) que deviceBtn, para que
+  // "Ventilador ×3"/"Power bank ×2" se vean como una fila más de la lista en
+  // vez de texto suelto — se combina con deviceBtn/deviceBtnOn/deviceBtnOff
+  // en el JSX. flexWrap porque en tablet las columnas laterales se angostan
+  // a ~150px (tabletColCenter no cede, ver arriba) y título + mini-iconos +
+  // flecha no entran en una sola línea — con wrap el resumen baja a su
+  // propia línea en vez de solaparse/recortarse.
   sectionHeaderRow: {
     flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 6, rowGap: 4, columnGap: 8,
+    padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1, rowGap: 4, columnGap: 8,
   },
   sectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
   chevron: { color: COLORS.faint, fontSize: 14, width: 12, textAlign: 'center' },
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  summaryDotBig: { width: 26, height: 26, borderRadius: 13 },
   summaryDotMini: { width: 12, height: 12, borderRadius: 6 },
 
   devices: { width: '100%', maxWidth: 380, marginTop: 14 },
