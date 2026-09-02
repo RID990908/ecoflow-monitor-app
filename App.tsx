@@ -270,6 +270,21 @@ function UsbIcon({ color = COLORS.dim }: { color?: string }) {
   );
 }
 
+// Enchufe de 2 clavijas: mismo estilo lineal/stroke que UsbIcon (nada de
+// relleno 3D como la foto de referencia) — dos clavijas arriba, cuerpo
+// redondeado, cablecito abajo. Reemplaza el emoji 🔌 en los nodos AC/CA del
+// diagrama. Tamaño chico (20x20) para no alterar el tamaño del iconCircle
+// que lo contiene, a pedido del usuario.
+function PlugIcon({ color = COLORS.dim, size = 20 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M9,2 L9,8 M15,2 L15,8" stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" />
+      <Rect x={6} y={8} width={12} height={8} rx={4} stroke={color} strokeWidth={2} fill="none" />
+      <Path d="M12,16 L12,21" stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function ArrowDownIcon({ color }: { color: string }) {
   return (
     <Svg width={14} height={14} viewBox="0 0 24 24">
@@ -797,11 +812,11 @@ export default function App() {
                       registro" sin agregar una fila nueva ni dejar espacio
                       vacío. */}
                   <IconCircle
-                    emoji="🔌"
+                    icon={<PlugIcon color={COLORS.dim} />}
                     state={acFlow}
                     watts={`${status.ac_w ?? 0} W`}
                     dirLabel={status.has_ac ? 'Sí' : status.last_ac_short || 'sin registro'}
-                    name="AC"
+                    name="CA"
                   />
                   <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
                 </View>
@@ -869,7 +884,7 @@ export default function App() {
                   <AnimatedPath d="M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={usbActive ? 1 : 0} />
                 </Svg>
                 <View style={styles.iconsRowBottom}>
-                  <IconCircle emoji="🔌" state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
+                  <IconCircle icon={<PlugIcon color={COLORS.dim} />} state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
                   <IconCircle icon={<UsbIcon color={COLORS.dim} />} state="neutral" watts={`${status.usb_out_w ?? 0} W`} name="USB" />
                 </View>
               </View>
