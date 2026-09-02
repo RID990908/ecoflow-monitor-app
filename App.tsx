@@ -161,6 +161,24 @@ function PowerSummary({ devices }: { devices: Device[] }) {
   );
 }
 
+// Agrupa dispositivos del mismo tipo (label sin el número final: "Ventilador
+// 1"/"Ventilador 2" -> "Ventilador") preservando el orden de aparición. Los
+// grupos de un solo ítem (Nevera, Laptop, Ecoplay) se renderizan como fila
+// suelta; solo los grupos con más de un ítem son colapsables.
+function groupByType(devices: Device[]): { key: string; emoji: string; devices: Device[] }[] {
+  const order: string[] = [];
+  const map = new Map<string, Device[]>();
+  for (const d of devices) {
+    const key = d.label.replace(/\s*\d+$/, '').trim();
+    if (!map.has(key)) {
+      map.set(key, []);
+      order.push(key);
+    }
+    map.get(key)!.push(d);
+  }
+  return order.map((key) => ({ key, emoji: map.get(key)![0].emoji, devices: map.get(key)! }));
+}
+
 function UsbIcon({ color = COLORS.dim }: { color?: string }) {
   return (
     <Svg width={18} height={9} viewBox="0 0 24 12">
@@ -359,11 +377,14 @@ export default function App() {
   const [ecoplayModalVisible, setEcoplayModalVisible] = useState(false);
   const [ecoplayPctInput, setEcoplayPctInput] = useState('');
   const [ecoplayModalError, setEcoplayModalError] = useState('');
-  // Colapsadas por default: el objetivo es que las secciones con más de un
-  // ítem (batería, dispositivos) no ocupen tanto espacio vertical — se
-  // expanden al tocar el header.
-  const [estadoCargaExpanded, setEstadoCargaExpanded] = useState(false);
-  const [dispositivosExpanded, setDispositivosExpanded] = useState(false);
+  // Grupos de dispositivos del mismo tipo (ej. "Ventilador 1/2/3", "Power
+  // bank 1/2") colapsados por default — solo esos, no la sección entera:
+  // ítems únicos (Nevera, Laptop, Ecoplay) siempre se muestran en su fila
+  // completa. Key = `${sección}:${nombre del grupo}`, ausente = colapsado.
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const toggleGroup = useCallback((key: string) => {
+    setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
   const lastSuccessAt = useRef<number | null>(null);
 
   // Offset animado compartido para el "flujo" de las líneas conectoras
@@ -446,8 +467,40 @@ export default function App() {
     }
   }, []);
 
+  // "Encendido" y "cargada" son mutuamente excluyentes (a pedido del
+  // usuario): nunca deben coexistir para el mismo dispositivo. clearOn /
+  // clearCharged apagan el estado contrario contra el backend cuando
+  // toggleDevice/toggleCharged detectan el conflicto.
+  const clearOn = useCallback(async (key: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/devices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device: key, on: false }),
+      });
+      const data: DevicesResponse = await res.json();
+      if (data.devices) setDevices(data.devices);
+    } catch {
+      loadDevices();
+    }
+  }, [loadDevices]);
+
+  const clearCharged = useCallback(async (key: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/devices/charged`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device: key, charged: false }),
+      });
+      const data: DevicesResponse = await res.json();
+      if (data.devices) setDevices(data.devices);
+    } catch {
+      loadDevices();
+    }
+  }, [loadDevices]);
+
   const toggleDevice = useCallback(async (key: string, turningOn: boolean) => {
-    setDevices((prev) => prev.map((d) => (d.key === key ? { ...d, on: turningOn } : d)));
+    setDevices((prev) => prev.map((d) => (d.key === key ? { ...d, on: turningOn, charged: turningOn ? false : d.charged } : d)));
     try {
       const res = await fetch(`${API_BASE}/api/devices`, {
         method: 'POST',
@@ -456,10 +509,14 @@ export default function App() {
       });
       const data: DevicesResponse = await res.json();
       if (data.devices) setDevices(data.devices);
+      const updated = data.devices?.find((d) => d.key === key);
+      if (turningOn && updated?.charged) {
+        await clearCharged(key);
+      }
     } catch {
       loadDevices();
     }
-  }, [loadDevices]);
+  }, [loadDevices, clearCharged]);
 
   // Mismo patrón que toggleDevice, apuntando a /api/devices/charged. Caso
   // especial ecoplay: pasar a "cargada" abre el modal de % (fuente de verdad
@@ -472,7 +529,7 @@ export default function App() {
       setEcoplayModalVisible(true);
       return;
     }
-    setDevices((prev) => prev.map((d) => (d.key === key ? { ...d, charged: settingCharged } : d)));
+    setDevices((prev) => prev.map((d) => (d.key === key ? { ...d, charged: settingCharged, on: settingCharged ? false : d.on } : d)));
     try {
       const res = await fetch(`${API_BASE}/api/devices/charged`, {
         method: 'POST',
@@ -481,10 +538,14 @@ export default function App() {
       });
       const data: DevicesResponse = await res.json();
       if (data.devices) setDevices(data.devices);
+      const updated = data.devices?.find((d) => d.key === key);
+      if (settingCharged && updated?.on) {
+        await clearOn(key);
+      }
     } catch {
       loadDevices();
     }
-  }, [loadDevices]);
+  }, [loadDevices, clearOn]);
 
   // Modal de % de Ecoplay (POST /api/ecoplay), único trigger: el badge de
   // Ecoplay en "Estado de carga" cuando está descargada (ver toggleCharged).
@@ -515,6 +576,12 @@ export default function App() {
         });
         const chargedData: DevicesResponse = await chargedRes.json();
         if (chargedData.devices) setDevices(chargedData.devices);
+        // Mismo criterio de exclusión mutua que toggleCharged: si ecoplay
+        // estaba encendida, se apaga al marcarse como cargada.
+        const updated = chargedData.devices?.find((d) => d.key === 'ecoplay');
+        if (updated?.on) {
+          await clearOn('ecoplay');
+        }
       } catch {
         loadDevices();
       }
@@ -522,7 +589,7 @@ export default function App() {
     } catch {
       setEcoplayModalError('No se pudo conectar con el servidor.');
     }
-  }, [ecoplayPctInput, loadDevices]);
+  }, [ecoplayPctInput, loadDevices, clearOn]);
 
   useEffect(() => {
     loadStatus();
@@ -740,77 +807,91 @@ export default function App() {
   ) : null;
 
   // Estado de carga: tocable, mismo patrón que "Qué tienes encendido" pero
-  // apuntando a /api/devices/charged (mirroring web dashboard).
+  // apuntando a /api/devices/charged (mirroring web dashboard). Ítems únicos
+  // (Ecoplay) van sueltos; grupos con más de un ítem (Ventiladores, Power
+  // banks) van colapsados dentro de un header con resumen — ver groupByType.
   const chargeableDevices = devices.filter((d) => d.charged != null);
+  const chargeRow = (d: Device) => (
+    <Pressable
+      key={d.key}
+      onPress={() => toggleCharged(d.key, !d.charged)}
+      style={[styles.deviceBtn, d.charged ? styles.deviceBtnOn : styles.deviceBtnOff]}
+    >
+      <View style={styles.deviceBtnNameCol}>
+        <Text style={styles.deviceBtnName}>
+          {d.emoji} {d.label}
+        </Text>
+        {d.note ? <Text style={styles.deviceBtnNote}>{d.note}</Text> : null}
+      </View>
+      <Text style={[styles.deviceState, { color: d.charged ? COLORS.green : COLORS.faint }]}>
+        {d.charged ? '🔋 cargada' : '🪫 descargada'}
+      </Text>
+    </Pressable>
+  );
   const estadoCargaSection = chargeableDevices.length > 0 ? (
     <View style={styles.devices}>
-      <Pressable
-        onPress={() => setEstadoCargaExpanded((v) => !v)}
-        style={styles.sectionHeaderRow}
-        hitSlop={8}
-      >
-        <Text style={styles.sectionTitle}>Estado de carga</Text>
-        <View style={styles.sectionHeaderRight}>
-          {!estadoCargaExpanded ? <ChargeSummary devices={chargeableDevices} /> : null}
-          <Text style={styles.chevron}>{estadoCargaExpanded ? '▾' : '▸'}</Text>
-        </View>
-      </Pressable>
-      {estadoCargaExpanded
-        ? chargeableDevices.map((d) => (
-            <Pressable
-              key={d.key}
-              onPress={() => toggleCharged(d.key, !d.charged)}
-              style={[styles.deviceBtn, d.charged ? styles.deviceBtnOn : styles.deviceBtnOff]}
-            >
-              <View style={styles.deviceBtnNameCol}>
-                <Text style={styles.deviceBtnName}>
-                  {d.emoji} {d.label}
-                </Text>
-                {d.note ? <Text style={styles.deviceBtnNote}>{d.note}</Text> : null}
-              </View>
-              <Text style={[styles.deviceState, { color: d.charged ? COLORS.green : COLORS.faint }]}>
-                {d.charged ? '🔋 cargada' : '🪫 descargada'}
+      <Text style={styles.sectionTitle}>Estado de carga</Text>
+      {groupByType(chargeableDevices).map((g) =>
+        g.devices.length === 1 ? (
+          chargeRow(g.devices[0])
+        ) : (
+          <View key={g.key} style={styles.deviceGroup}>
+            <Pressable onPress={() => toggleGroup(`carga:${g.key}`)} style={styles.sectionHeaderRow} hitSlop={8}>
+              <Text style={styles.groupTitle}>
+                {g.emoji} {g.key} ×{g.devices.length}
               </Text>
+              <View style={styles.sectionHeaderRight}>
+                {!expandedGroups[`carga:${g.key}`] ? <ChargeSummary devices={g.devices} /> : null}
+                <Text style={styles.chevron}>{expandedGroups[`carga:${g.key}`] ? '▾' : '▸'}</Text>
+              </View>
             </Pressable>
-          ))
-        : null}
+            {expandedGroups[`carga:${g.key}`] ? g.devices.map(chargeRow) : null}
+          </View>
+        )
+      )}
     </View>
   ) : null;
 
-  // Dispositivos
+  // Dispositivos: mismo patrón de agrupamiento que Estado de carga.
+  const powerRow = (d: Device) => (
+    <Pressable
+      key={d.key}
+      onPress={() => toggleDevice(d.key, !d.on)}
+      style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}
+    >
+      <Text style={[styles.deviceBtnName, styles.deviceBtnNameCol]}>
+        {d.fits != null ? (d.fits ? '🟢 ' : '🔴 ') : ''}
+        {d.emoji} {d.label} · {d.watts}W
+        {d.on && d.fits === false && d.deficit_w ? (
+          <Text style={styles.deficitText}> (-{d.deficit_w}W)</Text>
+        ) : null}
+      </Text>
+      <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>
+        {d.on ? 'ON' : 'OFF'}
+      </Text>
+    </Pressable>
+  );
   const dispositivosSection = devices.length > 0 ? (
     <View style={styles.devices}>
-      <Pressable
-        onPress={() => setDispositivosExpanded((v) => !v)}
-        style={styles.sectionHeaderRow}
-        hitSlop={8}
-      >
-        <Text style={styles.sectionTitle}>Qué tienes encendido</Text>
-        <View style={styles.sectionHeaderRight}>
-          {!dispositivosExpanded ? <PowerSummary devices={devices} /> : null}
-          <Text style={styles.chevron}>{dispositivosExpanded ? '▾' : '▸'}</Text>
-        </View>
-      </Pressable>
-      {dispositivosExpanded
-        ? devices.map((d) => (
-            <Pressable
-              key={d.key}
-              onPress={() => toggleDevice(d.key, !d.on)}
-              style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}
-            >
-              <Text style={[styles.deviceBtnName, styles.deviceBtnNameCol]}>
-                {d.fits != null ? (d.fits ? '🟢 ' : '🔴 ') : ''}
-                {d.emoji} {d.label} · {d.watts}W
-                {d.on && d.fits === false && d.deficit_w ? (
-                  <Text style={styles.deficitText}> (-{d.deficit_w}W)</Text>
-                ) : null}
+      <Text style={styles.sectionTitle}>Qué tienes encendido</Text>
+      {groupByType(devices).map((g) =>
+        g.devices.length === 1 ? (
+          powerRow(g.devices[0])
+        ) : (
+          <View key={g.key} style={styles.deviceGroup}>
+            <Pressable onPress={() => toggleGroup(`dispositivos:${g.key}`)} style={styles.sectionHeaderRow} hitSlop={8}>
+              <Text style={styles.groupTitle}>
+                {g.emoji} {g.key} ×{g.devices.length}
               </Text>
-              <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>
-                {d.on ? 'ON' : 'OFF'}
-              </Text>
+              <View style={styles.sectionHeaderRight}>
+                {!expandedGroups[`dispositivos:${g.key}`] ? <PowerSummary devices={g.devices} /> : null}
+                <Text style={styles.chevron}>{expandedGroups[`dispositivos:${g.key}`] ? '▾' : '▸'}</Text>
+              </View>
             </Pressable>
-          ))
-        : null}
+            {expandedGroups[`dispositivos:${g.key}`] ? g.devices.map(powerRow) : null}
+          </View>
+        )
+      )}
     </View>
   ) : null;
 
@@ -1017,11 +1098,20 @@ const styles = StyleSheet.create({
     fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'], textAlign: 'center',
   },
 
-  sectionTitle: { fontSize: 13, color: COLORS.dim },
+  sectionTitle: { fontSize: 13, color: COLORS.dim, marginBottom: 6 },
+  // deviceGroup envuelve un tipo repetido (Ventiladores, Power banks): su
+  // propio header colapsable, separado del título de sección.
+  deviceGroup: { marginBottom: 8 },
+  groupTitle: { fontSize: 13, color: '#cbd5e1', flexShrink: 1 },
+  // flexWrap en la fila del header de grupo: en tablet las columnas
+  // laterales se angostan a ~150px (tabletColCenter no cede, ver arriba) y
+  // título + mini-iconos + flecha no entran en una sola línea — con wrap el
+  // resumen baja a su propia línea en vez de solaparse/recortarse.
   sectionHeaderRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6,
+    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 6, rowGap: 4, columnGap: 8,
   },
-  sectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
   chevron: { color: COLORS.faint, fontSize: 14, width: 12, textAlign: 'center' },
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   summaryDotBig: { width: 26, height: 26, borderRadius: 13 },
