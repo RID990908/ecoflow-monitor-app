@@ -174,6 +174,7 @@ function DeviceIcon({ emoji }: { emoji: string }) {
 // parte puntual se reemplaza por el ícono; el resto (☀️, /, 🔌) queda igual.
 function SourceEmoji({ value }: { value?: string }) {
   if (!value) return null;
+  if (value === '🔌') return <TowerIcon color={COLORS.dim} size={20} />;
   if (!value.includes('🔋')) return <Text style={styles.emoji}>{value}</Text>;
   const parts = value.split('🔋');
   return (
