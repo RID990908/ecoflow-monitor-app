@@ -844,7 +844,11 @@ export default function App() {
               hitSlop={8}
             >
               <View style={styles.groupTitleRow}>
-                <Text style={styles.groupEmoji}>{g.emoji}</Text>
+                {g.emoji === '🔋' ? (
+                  <BatteryIcon state="neutral" size={15} />
+                ) : (
+                  <Text style={styles.groupEmoji}>{g.emoji}</Text>
+                )}
                 <Text style={styles.groupTitle} numberOfLines={1}>
                   {g.key} ×{g.devices.length}
                 </Text>
@@ -897,7 +901,11 @@ export default function App() {
               hitSlop={8}
             >
               <View style={styles.groupTitleRow}>
-                <Text style={styles.groupEmoji}>{g.emoji}</Text>
+                {g.emoji === '🔋' ? (
+                  <BatteryIcon state="neutral" size={15} />
+                ) : (
+                  <Text style={styles.groupEmoji}>{g.emoji}</Text>
+                )}
                 <Text style={styles.groupTitle} numberOfLines={1}>
                   {g.key} ×{g.devices.length}
                 </Text>
