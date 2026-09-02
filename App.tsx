@@ -293,6 +293,20 @@ function TowerIcon({ color = COLORS.dim, size = 20 }: { color?: string; size?: n
   );
 }
 
+// Casa simple (techo a dos aguas + paredes + puertita rellena), mismo
+// estilo lineal que el resto — representa el consumo de la casa en el nodo
+// de salida de CA, en vez de repetir la torre (que es la fuente/entrada,
+// no adónde va la energía).
+function HouseIcon({ color = COLORS.dim, size = 20 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M4,11 L12,4 L20,11" stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M6,10 L6,20 L18,20 L18,10" stroke={color} strokeWidth={2} fill="none" strokeLinejoin="round" />
+      <Rect x={10.5} y={14} width={3} height={6} fill={color} />
+    </Svg>
+  );
+}
+
 function ArrowDownIcon({ color }: { color: string }) {
   return (
     <Svg width={14} height={14} viewBox="0 0 24 24">
@@ -820,7 +834,7 @@ export default function App() {
                       registro" sin agregar una fila nueva ni dejar espacio
                       vacío. */}
                   <IconCircle
-                    icon={<TowerIcon color={COLORS.dim} />}
+                    icon={<TowerIcon color={COLORS.dim} size={28} />}
                     state={acFlow}
                     watts={`${status.ac_w ?? 0} W`}
                     dirLabel={status.has_ac ? 'Sí' : status.last_ac_short || 'sin registro'}
@@ -892,7 +906,7 @@ export default function App() {
                   <AnimatedPath d="M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={usbActive ? 1 : 0} />
                 </Svg>
                 <View style={styles.iconsRowBottom}>
-                  <IconCircle icon={<TowerIcon color={COLORS.dim} />} state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
+                  <IconCircle icon={<HouseIcon color={COLORS.dim} size={22} />} state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
                   <IconCircle icon={<UsbIcon color={COLORS.dim} />} state="neutral" watts={`${status.usb_out_w ?? 0} W`} name="USB" />
                 </View>
               </View>
