@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Animated,
@@ -163,6 +163,26 @@ function DeviceIcon({ emoji }: { emoji: string }) {
   if (emoji === '🔋') return <BatteryIcon state="charging" size={13} />;
   if (emoji === '🌀') return <FanIcon color={COLORS.dim} size={14} />;
   return <Text style={styles.groupEmoji}>{emoji}</Text>;
+}
+
+// El emoji de fuente (status.source_emoji) puede venir combinado del backend
+// (ej. "☀️/🔋" cuando usa solar + batería a la vez), no siempre "🔋" solo —
+// por eso el match exacto no alcanzaba. Se parte el string por 🔋 y esa
+// parte puntual se reemplaza por el ícono; el resto (☀️, /, 🔌) queda igual.
+function SourceEmoji({ value }: { value?: string }) {
+  if (!value) return null;
+  if (!value.includes('🔋')) return <Text style={styles.emoji}>{value}</Text>;
+  const parts = value.split('🔋');
+  return (
+    <>
+      {parts.map((part, i) => (
+        <Fragment key={i}>
+          {part ? <Text style={styles.emoji}>{part}</Text> : null}
+          {i < parts.length - 1 ? <BatteryIcon state="charging" size={20} /> : null}
+        </Fragment>
+      ))}
+    </>
+  );
 }
 
 // Mismo mapeo que DeviceIcon pero para el header de grupo (Ventilador ×3,
@@ -735,12 +755,8 @@ export default function App() {
                 </View>
                 <View style={styles.ioCenter}>
                   <Text style={styles.verb}>{status.source_verb}</Text>
-                  <View style={styles.emojiWrap}>
-                    {status.source_emoji === '🔋' ? (
-                      <BatteryIcon state="charging" size={20} />
-                    ) : (
-                      <Text style={styles.emoji}>{status.source_emoji}</Text>
-                    )}
+                  <View style={[styles.emojiWrap, styles.sourceEmojiRow]}>
+                    <SourceEmoji value={status.source_emoji} />
                   </View>
                 </View>
                 <View style={[styles.ioCol, { alignItems: 'flex-end' }]}>
@@ -1146,6 +1162,7 @@ const styles = StyleSheet.create({
   verb: { fontSize: 13, color: COLORS.dim },
   emoji: { fontSize: 22, marginTop: 2 },
   emojiWrap: { marginTop: 2 },
+  sourceEmojiRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
 
   iconItem: { alignItems: 'center', width: 84 },
   iconCircle: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
