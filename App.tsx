@@ -122,6 +122,55 @@ function BatteryIcon({ state, size = 15 }: { state: FlowState; size?: number }) 
   );
 }
 
+// 3 aspas tipo hélice alrededor de un hub — mismo patrón de path repetido +
+// rotation/origin que ya usa PercentRing para el aro. bg oscuro perfora el
+// centro para que se vea el hub separado de las aspas.
+function FanIcon({ color = COLORS.dim, size = 15 }: { color?: string; size?: number }) {
+  const blade = 'M12,12 C9,10.5 8,6.5 12,2 C16,6.5 15,10.5 12,12 Z';
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d={blade} fill={color} />
+      <Path d={blade} fill={color} rotation={120} origin="12,12" />
+      <Path d={blade} fill={color} rotation={240} origin="12,12" />
+      <Circle cx={12} cy={12} r={2} fill={COLORS.bg} />
+    </Svg>
+  );
+}
+
+// Badge circular fijo para headers de grupo (Ventilador ×3, Power bank ×2):
+// mismo estilo de nodo que usa el diagrama (iconCircle/lateralIconCircle),
+// con el ícono dibujado a mano correspondiente adentro en vez del emoji del
+// dispositivo — evita el problema de glifos de emoji con métrica vertical
+// distinta (🔋 vs 🌀).
+function GroupIconBadge({ bg, size = 26, children }: { bg: string; size?: number; children: ReactNode }) {
+  return (
+    <View style={[styles.groupIconCircle, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
+      {children}
+    </View>
+  );
+}
+
+// Mapea el emoji del dispositivo (dato del backend) al ícono dibujado a
+// mano correspondiente para el header de grupo. Grupos sin ícono propio
+// caen al emoji tal cual (fallback, no hay ningún otro grupo repetido hoy).
+function GroupHeaderIcon({ emoji }: { emoji: string }) {
+  if (emoji === '🔋') {
+    return (
+      <GroupIconBadge bg={COLORS.chargingBg}>
+        <BatteryIcon state="charging" size={11} />
+      </GroupIconBadge>
+    );
+  }
+  if (emoji === '🌀') {
+    return (
+      <GroupIconBadge bg="#1c232b">
+        <FanIcon color={COLORS.dim} size={14} />
+      </GroupIconBadge>
+    );
+  }
+  return <Text style={styles.groupEmoji}>{emoji}</Text>;
+}
+
 // Resumen colapsado de "Estado de carga": 1 batería grande si las tres
 // (Delta2/Extra/Ecoplay) están igual, o una fila de mini baterías por
 // dispositivo cuando el estado es mixto — mismo BatteryIcon reusado en dos
@@ -843,9 +892,12 @@ export default function App() {
               ]}
               hitSlop={8}
             >
-              <Text style={styles.groupTitle} numberOfLines={1}>
-                <Text style={styles.groupEmoji}>{g.emoji}</Text> {g.key} ×{g.devices.length}
-              </Text>
+              <View style={styles.groupTitleRow}>
+                <GroupHeaderIcon emoji={g.emoji} />
+                <Text style={styles.groupTitle} numberOfLines={1}>
+                  {g.key} ×{g.devices.length}
+                </Text>
+              </View>
               <View style={styles.sectionHeaderRight}>
                 {!expandedGroups[`carga:${g.key}`] ? <ChargeSummary devices={g.devices} /> : null}
                 <Text style={styles.chevron}>{expandedGroups[`carga:${g.key}`] ? '▾' : '▸'}</Text>
@@ -893,9 +945,12 @@ export default function App() {
               ]}
               hitSlop={8}
             >
-              <Text style={styles.groupTitle} numberOfLines={1}>
-                <Text style={styles.groupEmoji}>{g.emoji}</Text> {g.key} ×{g.devices.length}
-              </Text>
+              <View style={styles.groupTitleRow}>
+                <GroupHeaderIcon emoji={g.emoji} />
+                <Text style={styles.groupTitle} numberOfLines={1}>
+                  {g.key} ×{g.devices.length}
+                </Text>
+              </View>
               <View style={styles.sectionHeaderRight}>
                 {!expandedGroups[`dispositivos:${g.key}`] ? <PowerSummary devices={g.devices} /> : null}
                 <Text style={styles.chevron}>{expandedGroups[`dispositivos:${g.key}`] ? '▾' : '▸'}</Text>
@@ -1115,13 +1170,12 @@ const styles = StyleSheet.create({
   // deviceGroup envuelve un tipo repetido (Ventiladores, Power banks): su
   // propio header colapsable, separado del título de sección.
   deviceGroup: { marginBottom: 8 },
+  // Fila del título de grupo: ícono (emoji o GroupIcon circular para Power
+  // bank) + texto, alineados por caja de flex en vez de línea base de texto.
+  groupTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0 },
   groupTitle: { fontSize: 13, color: '#cbd5e1', flexShrink: 1 },
-  // Nudge hacia arriba: el glifo de emoji de batería (🔋) en iOS tiene más
-  // aire abajo que el resto (🌀, 📡) y queda corrido hacia abajo dentro del
-  // mismo texto. transform (no margin: los márgenes verticales no afectan
-  // a elementos inline en CSS/react-native-web) lo sube sin tocar el resto
-  // del layout.
-  groupEmoji: { transform: [{ translateY: -4 }] },
+  groupEmoji: { fontSize: 15 },
+  groupIconCircle: { backgroundColor: COLORS.chargingBg, alignItems: 'center', justifyContent: 'center' },
   // Header de grupo: mismo box (padding/borde/radio) que deviceBtn, para que
   // "Ventilador ×3"/"Power bank ×2" se vean como una fila más de la lista en
   // vez de texto suelto — se combina con deviceBtn/deviceBtnOn/deviceBtnOff
