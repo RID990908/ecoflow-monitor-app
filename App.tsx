@@ -843,9 +843,12 @@ export default function App() {
               ]}
               hitSlop={8}
             >
-              <Text style={styles.groupTitle}>
-                {g.emoji} {g.key} ×{g.devices.length}
-              </Text>
+              <View style={styles.groupTitleRow}>
+                <Text style={styles.groupEmoji}>{g.emoji}</Text>
+                <Text style={styles.groupTitle} numberOfLines={1}>
+                  {g.key} ×{g.devices.length}
+                </Text>
+              </View>
               <View style={styles.sectionHeaderRight}>
                 {!expandedGroups[`carga:${g.key}`] ? <ChargeSummary devices={g.devices} /> : null}
                 <Text style={styles.chevron}>{expandedGroups[`carga:${g.key}`] ? '▾' : '▸'}</Text>
@@ -893,9 +896,12 @@ export default function App() {
               ]}
               hitSlop={8}
             >
-              <Text style={styles.groupTitle}>
-                {g.emoji} {g.key} ×{g.devices.length}
-              </Text>
+              <View style={styles.groupTitleRow}>
+                <Text style={styles.groupEmoji}>{g.emoji}</Text>
+                <Text style={styles.groupTitle} numberOfLines={1}>
+                  {g.key} ×{g.devices.length}
+                </Text>
+              </View>
               <View style={styles.sectionHeaderRight}>
                 {!expandedGroups[`dispositivos:${g.key}`] ? <PowerSummary devices={g.devices} /> : null}
                 <Text style={styles.chevron}>{expandedGroups[`dispositivos:${g.key}`] ? '▾' : '▸'}</Text>
@@ -1115,7 +1121,14 @@ const styles = StyleSheet.create({
   // deviceGroup envuelve un tipo repetido (Ventiladores, Power banks): su
   // propio header colapsable, separado del título de sección.
   deviceGroup: { marginBottom: 8 },
-  groupTitle: { fontSize: 13, color: '#cbd5e1', flexShrink: 1 },
+  // Emoji separado del texto en su propio Text con lineHeight fijo: algunos
+  // glifos (🔋) tienen una métrica vertical más alta que otros (🌀, 📡) y
+  // quedan corridos hacia abajo si comparten el mismo nodo de texto — con
+  // lineHeight explícito en ambos, alignItems:'center' de groupTitleRow los
+  // centra por caja en vez de por línea base del glifo.
+  groupTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0 },
+  groupEmoji: { fontSize: 15, lineHeight: 18 },
+  groupTitle: { fontSize: 13, color: '#cbd5e1', lineHeight: 18, flexShrink: 1 },
   // Header de grupo: mismo box (padding/borde/radio) que deviceBtn, para que
   // "Ventilador ×3"/"Power bank ×2" se vean como una fila más de la lista en
   // vez de texto suelto — se combina con deviceBtn/deviceBtnOn/deviceBtnOff
