@@ -149,7 +149,7 @@ function FanIcon({ color = '#e5e7eb', size = 15 }: { color?: string; size?: numb
 // con el ícono dibujado a mano correspondiente adentro en vez del emoji del
 // dispositivo — evita el problema de glifos de emoji con métrica vertical
 // distinta (🔋 vs 🌀).
-function GroupIconBadge({ bg, size = 26, children }: { bg: string; size?: number; children: ReactNode }) {
+function GroupIconBadge({ bg = 'transparent', size = 26, children }: { bg?: string; size?: number; children: ReactNode }) {
   return (
     <View style={[styles.groupIconCircle, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
       {children}
@@ -189,12 +189,20 @@ function SourceEmoji({ value }: { value?: string }) {
 }
 
 // Mismo mapeo que DeviceIcon pero para el header de grupo (Ventilador ×3,
-// Power bank ×2): fan va en badge circular (mismo estilo que los nodos del
-// diagrama), battery va suelta sin badge/fondo (a pedido del usuario). Sin
-// transform/nudge: DeviceIcon y GroupHeaderIcon usan el mismo BatteryIcon
-// puro, así quedan a la misma altura relativa en cualquier contexto.
+// Power bank ×2): ambos van en la misma caja circular de 26px (mismo
+// estilo que los nodos del diagrama) para que las filas queden alineadas —
+// battery sin fondo de color (a pedido del usuario), fan con fondo oscuro
+// para contraste. Sin transform/nudge: DeviceIcon y GroupHeaderIcon usan el
+// mismo BatteryIcon puro, así quedan a la misma altura relativa en
+// cualquier contexto.
 function GroupHeaderIcon({ emoji }: { emoji: string }) {
-  if (emoji === '🔋') return <BatteryIcon state="charging" size={15} />;
+  if (emoji === '🔋') {
+    return (
+      <GroupIconBadge>
+        <BatteryIcon state="charging" size={15} />
+      </GroupIconBadge>
+    );
+  }
   if (emoji === '🌀') {
     return (
       <GroupIconBadge bg="#33404d">
