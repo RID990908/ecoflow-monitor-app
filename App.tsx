@@ -127,15 +127,15 @@ function BatteryIcon({ state, size = 15 }: { state: FlowState; size?: number }) 
 // repetido + rotation/origin que ya usa PercentRing para el aro. Sin base:
 // a este tamaño (badge de ~15-26px) el pie del ventilador no se leería,
 // así que se deja solo la cabeza (aro + aspas), que es lo reconocible.
-function FanIcon({ color = COLORS.dim, size = 15 }: { color?: string; size?: number }) {
+function FanIcon({ color = '#e5e7eb', size = 15 }: { color?: string; size?: number }) {
   const blade = 'M12,12 C7.5,11 5.5,7.5 8,3.5 C12,4.5 13,9 12,12 Z';
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Circle cx={12} cy={12} r={10.5} stroke={color} strokeWidth={1.4} fill="none" />
+      <Circle cx={12} cy={12} r={10.5} stroke={color} strokeWidth={1.8} fill="none" />
       <Path d={blade} fill={color} />
       <Path d={blade} fill={color} rotation={120} origin="12,12" />
       <Path d={blade} fill={color} rotation={240} origin="12,12" />
-      <Circle cx={12} cy={12} r={2.3} fill={COLORS.bg} stroke={color} strokeWidth={1.2} />
+      <Circle cx={12} cy={12} r={2.3} fill={COLORS.bg} stroke={color} strokeWidth={1.6} />
       <Circle cx={12} cy={12} r={0.8} fill={color} />
     </Svg>
   );
@@ -202,17 +202,18 @@ function GroupHeaderIcon({ emoji }: { emoji: string }) {
   return <Text style={styles.groupEmoji}>{emoji}</Text>;
 }
 
-// Resumen colapsado de "Estado de carga": 1 batería grande si las tres
-// (Delta2/Extra/Ecoplay) están igual, o una fila de mini baterías por
-// dispositivo cuando el estado es mixto — mismo BatteryIcon reusado en dos
-// tamaños, sin duplicar el shape del ícono.
-// Si el grupo está uniforme (todo cargado o todo descargado) no hay nada
-// que señalar — no se muestra ícono. Solo aparece cuando el estado es
-// mixto, como alerta de "esto no está como el resto".
+// Resumen colapsado de "Estado de carga": 1 ícono si todos los dispositivos
+// del grupo están igual (verde cargado / rojo descargado), o una fila de
+// mini íconos por dispositivo cuando el estado es mixto. Siempre muestra
+// algo — nunca queda vacío, el color ya cuenta la historia sin abrir el
+// grupo.
 function ChargeSummary({ devices }: { devices: Device[] }) {
+  if (devices.length === 0) return null;
   const allCharged = devices.every((d) => d.charged);
   const allDischarged = devices.every((d) => !d.charged);
-  if (devices.length === 0 || allCharged || allDischarged) return null;
+  if (allCharged || allDischarged) {
+    return <BatteryIcon state={allCharged ? 'charging' : 'discharging'} size={15} />;
+  }
   return (
     <View style={styles.summaryRow}>
       {devices.map((d) => (
@@ -222,15 +223,15 @@ function ChargeSummary({ devices }: { devices: Device[] }) {
   );
 }
 
-// Mismo patrón que ChargeSummary para "Qué tienes encendido": 1 bola grande
-// si todos los dispositivos están en el mismo estado, o mini bolas por
-// dispositivo cuando es mixto.
-// Mismo criterio que ChargeSummary: grupo uniforme (todo on o todo off) no
-// muestra nada, solo el estado mixto amerita el resumen de mini bolas.
+// Mismo patrón que ChargeSummary para "Qué tienes encendido": 1 bola si
+// todos están igual (verde on / rojo off), o mini bolas cuando es mixto.
 function PowerSummary({ devices }: { devices: Device[] }) {
+  if (devices.length === 0) return null;
   const allOn = devices.every((d) => d.on);
   const allOff = devices.every((d) => !d.on);
-  if (devices.length === 0 || allOn || allOff) return null;
+  if (allOn || allOff) {
+    return <View style={[styles.summaryDotMini, { backgroundColor: allOn ? COLORS.green : COLORS.red }]} />;
+  }
   return (
     <View style={styles.summaryRow}>
       {devices.map((d) => (
@@ -913,12 +914,9 @@ export default function App() {
           </View>
         ) : null}
       </View>
-      <View style={styles.deviceStateRow}>
-        <BatteryIcon state={d.charged ? 'charging' : 'neutral'} size={13} />
-        <Text style={[styles.deviceState, { color: d.charged ? COLORS.green : COLORS.faint }]}>
-          {d.charged ? 'cargada' : 'descargada'}
-        </Text>
-      </View>
+      {/* Sin texto "cargada"/"descargada": el color del ícono (verde/rojo)
+          ya lo dice solo. */}
+      <BatteryIcon state={d.charged ? 'charging' : 'discharging'} size={16} />
     </Pressable>
   );
   const estadoCargaSection = chargeableDevices.length > 0 ? (
@@ -1256,7 +1254,6 @@ const styles = StyleSheet.create({
   deviceBtnNoteRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   deficitText: { color: COLORS.red, fontWeight: '700', fontSize: 12 },
   deviceState: { fontWeight: '700', fontSize: 12, letterSpacing: 0.5 },
-  deviceStateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
 
   updatedRow: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
   liveDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
