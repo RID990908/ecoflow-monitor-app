@@ -270,17 +270,25 @@ function UsbIcon({ color = COLORS.dim }: { color?: string }) {
   );
 }
 
-// Enchufe de 2 clavijas: mismo estilo lineal/stroke que UsbIcon (nada de
-// relleno 3D como la foto de referencia) — dos clavijas arriba, cuerpo
-// redondeado, cablecito abajo. Reemplaza el emoji 🔌 en los nodos AC/CA del
-// diagrama. Tamaño chico (20x20) para no alterar el tamaño del iconCircle
-// que lo contiene, a pedido del usuario.
-function PlugIcon({ color = COLORS.dim, size = 20 }: { color?: string; size?: number }) {
+// Torre de alta tensión simplificada: gorro triangular + 2 patas que se
+// abren en la base + 2 barras horizontales + una cruz entre ellas — la
+// referencia del usuario (foto de un pilón con reticulado completo) tiene
+// demasiado detalle fino para 20px, así que se reduce al enrejado a lo
+// esencial (silueta triangular + una sola cruz) en vez de repetir el
+// patrón varias veces, que se volvería una mancha borrosa a este tamaño.
+// Reemplaza el emoji 🔌 en los nodos AC/CA del diagrama. Mismo estilo
+// lineal/stroke que el resto de los íconos (UsbIcon, BatteryIcon).
+function TowerIcon({ color = COLORS.dim, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path d="M9,2 L9,8 M15,2 L15,8" stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" />
-      <Rect x={6} y={8} width={12} height={8} rx={4} stroke={color} strokeWidth={2} fill="none" />
-      <Path d="M12,16 L12,21" stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" />
+      <Path d="M12,2 L15,6 L9,6 Z" fill={color} />
+      <Path
+        d="M9,6 L6,22 M15,6 L18,22 M6,22 L3,22 M18,22 L21,22 M7,10 L17,10 M6,15 L18,15 M9,10 L15,15 M15,10 L9,15"
+        stroke={color}
+        strokeWidth={1.4}
+        fill="none"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
@@ -812,7 +820,7 @@ export default function App() {
                       registro" sin agregar una fila nueva ni dejar espacio
                       vacío. */}
                   <IconCircle
-                    icon={<PlugIcon color={COLORS.dim} />}
+                    icon={<TowerIcon color={COLORS.dim} />}
                     state={acFlow}
                     watts={`${status.ac_w ?? 0} W`}
                     dirLabel={status.has_ac ? 'Sí' : status.last_ac_short || 'sin registro'}
@@ -884,7 +892,7 @@ export default function App() {
                   <AnimatedPath d="M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={usbActive ? 1 : 0} />
                 </Svg>
                 <View style={styles.iconsRowBottom}>
-                  <IconCircle icon={<PlugIcon color={COLORS.dim} />} state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
+                  <IconCircle icon={<TowerIcon color={COLORS.dim} />} state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
                   <IconCircle icon={<UsbIcon color={COLORS.dim} />} state="neutral" watts={`${status.usb_out_w ?? 0} W`} name="USB" />
                 </View>
               </View>
