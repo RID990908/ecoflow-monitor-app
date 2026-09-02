@@ -122,6 +122,45 @@ function BatteryIcon({ state, size = 15 }: { state: FlowState; size?: number }) 
   );
 }
 
+// Resumen colapsado de "Estado de carga": 1 batería grande si las tres
+// (Delta2/Extra/Ecoplay) están igual, o una fila de mini baterías por
+// dispositivo cuando el estado es mixto — mismo BatteryIcon reusado en dos
+// tamaños, sin duplicar el shape del ícono.
+function ChargeSummary({ devices }: { devices: Device[] }) {
+  if (devices.length === 0) return null;
+  const allCharged = devices.every((d) => d.charged);
+  const allDischarged = devices.every((d) => !d.charged);
+  if (allCharged || allDischarged) {
+    return <BatteryIcon state={allCharged ? 'charging' : 'discharging'} size={34} />;
+  }
+  return (
+    <View style={styles.summaryRow}>
+      {devices.map((d) => (
+        <BatteryIcon key={d.key} state={d.charged ? 'charging' : 'discharging'} size={15} />
+      ))}
+    </View>
+  );
+}
+
+// Mismo patrón que ChargeSummary para "Qué tienes encendido": 1 bola grande
+// si todos los dispositivos están en el mismo estado, o mini bolas por
+// dispositivo cuando es mixto.
+function PowerSummary({ devices }: { devices: Device[] }) {
+  if (devices.length === 0) return null;
+  const allOn = devices.every((d) => d.on);
+  const allOff = devices.every((d) => !d.on);
+  if (allOn || allOff) {
+    return <View style={[styles.summaryDotBig, { backgroundColor: allOn ? COLORS.green : COLORS.red }]} />;
+  }
+  return (
+    <View style={styles.summaryRow}>
+      {devices.map((d) => (
+        <View key={d.key} style={[styles.summaryDotMini, { backgroundColor: d.on ? COLORS.green : COLORS.red }]} />
+      ))}
+    </View>
+  );
+}
+
 function UsbIcon({ color = COLORS.dim }: { color?: string }) {
   return (
     <Svg width={18} height={9} viewBox="0 0 24 12">
@@ -320,6 +359,11 @@ export default function App() {
   const [ecoplayModalVisible, setEcoplayModalVisible] = useState(false);
   const [ecoplayPctInput, setEcoplayPctInput] = useState('');
   const [ecoplayModalError, setEcoplayModalError] = useState('');
+  // Colapsadas por default: el objetivo es que las secciones con más de un
+  // ítem (batería, dispositivos) no ocupen tanto espacio vertical — se
+  // expanden al tocar el header.
+  const [estadoCargaExpanded, setEstadoCargaExpanded] = useState(false);
+  const [dispositivosExpanded, setDispositivosExpanded] = useState(false);
   const lastSuccessAt = useRef<number | null>(null);
 
   // Offset animado compartido para el "flujo" de las líneas conectoras
@@ -697,51 +741,76 @@ export default function App() {
 
   // Estado de carga: tocable, mismo patrón que "Qué tienes encendido" pero
   // apuntando a /api/devices/charged (mirroring web dashboard).
-  const estadoCargaSection = devices.some((d) => d.charged != null) ? (
+  const chargeableDevices = devices.filter((d) => d.charged != null);
+  const estadoCargaSection = chargeableDevices.length > 0 ? (
     <View style={styles.devices}>
-      <Text style={styles.sectionTitle}>Estado de carga</Text>
-      {devices
-        .filter((d) => d.charged != null)
-        .map((d) => (
-          <Pressable
-            key={d.key}
-            onPress={() => toggleCharged(d.key, !d.charged)}
-            style={[styles.deviceBtn, d.charged ? styles.deviceBtnOn : styles.deviceBtnOff]}
-          >
-            <View style={styles.deviceBtnNameCol}>
-              <Text style={styles.deviceBtnName}>
-                {d.emoji} {d.label}
+      <Pressable
+        onPress={() => setEstadoCargaExpanded((v) => !v)}
+        style={styles.sectionHeaderRow}
+        hitSlop={8}
+      >
+        <Text style={styles.sectionTitle}>Estado de carga</Text>
+        <View style={styles.sectionHeaderRight}>
+          {!estadoCargaExpanded ? <ChargeSummary devices={chargeableDevices} /> : null}
+          <Text style={styles.chevron}>{estadoCargaExpanded ? '▾' : '▸'}</Text>
+        </View>
+      </Pressable>
+      {estadoCargaExpanded
+        ? chargeableDevices.map((d) => (
+            <Pressable
+              key={d.key}
+              onPress={() => toggleCharged(d.key, !d.charged)}
+              style={[styles.deviceBtn, d.charged ? styles.deviceBtnOn : styles.deviceBtnOff]}
+            >
+              <View style={styles.deviceBtnNameCol}>
+                <Text style={styles.deviceBtnName}>
+                  {d.emoji} {d.label}
+                </Text>
+                {d.note ? <Text style={styles.deviceBtnNote}>{d.note}</Text> : null}
+              </View>
+              <Text style={[styles.deviceState, { color: d.charged ? COLORS.green : COLORS.faint }]}>
+                {d.charged ? '🔋 cargada' : '🪫 descargada'}
               </Text>
-              {d.note ? <Text style={styles.deviceBtnNote}>{d.note}</Text> : null}
-            </View>
-            <Text style={[styles.deviceState, { color: d.charged ? COLORS.green : COLORS.faint }]}>
-              {d.charged ? '🔋 cargada' : '🪫 descargada'}
-            </Text>
-          </Pressable>
-        ))}
+            </Pressable>
+          ))
+        : null}
     </View>
   ) : null;
 
   // Dispositivos
   const dispositivosSection = devices.length > 0 ? (
     <View style={styles.devices}>
-      <Text style={styles.sectionTitle}>Qué tienes encendido</Text>
-      {devices.map((d) => (
-        <Pressable
-          key={d.key}
-          onPress={() => toggleDevice(d.key, !d.on)}
-          style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}
-        >
-          <Text style={[styles.deviceBtnName, styles.deviceBtnNameCol]}>
-            {d.fits != null ? (d.fits ? '🟢 ' : '🔴 ') : ''}
-            {d.emoji} {d.label} · {d.watts}W
-            {d.on && d.fits === false && d.deficit_w ? (
-              <Text style={styles.deficitText}> (-{d.deficit_w}W)</Text>
-            ) : null}
-          </Text>
-          <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>{d.on ? 'ON' : 'OFF'}</Text>
-        </Pressable>
-      ))}
+      <Pressable
+        onPress={() => setDispositivosExpanded((v) => !v)}
+        style={styles.sectionHeaderRow}
+        hitSlop={8}
+      >
+        <Text style={styles.sectionTitle}>Qué tienes encendido</Text>
+        <View style={styles.sectionHeaderRight}>
+          {!dispositivosExpanded ? <PowerSummary devices={devices} /> : null}
+          <Text style={styles.chevron}>{dispositivosExpanded ? '▾' : '▸'}</Text>
+        </View>
+      </Pressable>
+      {dispositivosExpanded
+        ? devices.map((d) => (
+            <Pressable
+              key={d.key}
+              onPress={() => toggleDevice(d.key, !d.on)}
+              style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}
+            >
+              <Text style={[styles.deviceBtnName, styles.deviceBtnNameCol]}>
+                {d.fits != null ? (d.fits ? '🟢 ' : '🔴 ') : ''}
+                {d.emoji} {d.label} · {d.watts}W
+                {d.on && d.fits === false && d.deficit_w ? (
+                  <Text style={styles.deficitText}> (-{d.deficit_w}W)</Text>
+                ) : null}
+              </Text>
+              <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>
+                {d.on ? 'ON' : 'OFF'}
+              </Text>
+            </Pressable>
+          ))
+        : null}
     </View>
   ) : null;
 
@@ -948,7 +1017,15 @@ const styles = StyleSheet.create({
     fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'], textAlign: 'center',
   },
 
-  sectionTitle: { fontSize: 13, color: COLORS.dim, marginBottom: 6 },
+  sectionTitle: { fontSize: 13, color: COLORS.dim },
+  sectionHeaderRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6,
+  },
+  sectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  chevron: { color: COLORS.faint, fontSize: 14, width: 12, textAlign: 'center' },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  summaryDotBig: { width: 26, height: 26, borderRadius: 13 },
+  summaryDotMini: { width: 12, height: 12, borderRadius: 6 },
 
   devices: { width: '100%', maxWidth: 380, marginTop: 14 },
   deviceBtn: {
