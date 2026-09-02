@@ -875,7 +875,15 @@ export default function App() {
         <Text style={styles.deviceBtnName}>
           {d.emoji} {d.label}
         </Text>
-        {d.note ? <Text style={styles.deviceBtnNote}>{d.note}</Text> : null}
+        {d.note ? (
+          <View style={styles.deviceBtnNoteRow}>
+            {/* El backend manda el note con un 🔋 embebido en el string
+                (ej. "🔋 100%: 20:44 (Meta: 07:30)") — se saca y se reemplaza
+                por el mismo BatteryIcon SVG del resto de la app. */}
+            {d.note.startsWith('🔋') ? <BatteryIcon state="charging" size={11} /> : null}
+            <Text style={styles.deviceBtnNote}>{d.note.replace(/^🔋\s*/, '')}</Text>
+          </View>
+        ) : null}
       </View>
       <View style={styles.deviceStateRow}>
         <BatteryIcon state={d.charged ? 'charging' : 'neutral'} size={13} />
@@ -1213,7 +1221,8 @@ const styles = StyleSheet.create({
   deviceBtnOff: { backgroundColor: COLORS.card, borderColor: COLORS.border },
   deviceBtnName: { fontSize: 14, color: '#cbd5e1' },
   deviceBtnNameCol: { flexShrink: 1 },
-  deviceBtnNote: { fontSize: 12, color: COLORS.faint, marginTop: 2 },
+  deviceBtnNote: { fontSize: 12, color: COLORS.faint },
+  deviceBtnNoteRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   deficitText: { color: COLORS.red, fontWeight: '700', fontSize: 12 },
   deviceState: { fontWeight: '700', fontSize: 12, letterSpacing: 0.5 },
   deviceStateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
