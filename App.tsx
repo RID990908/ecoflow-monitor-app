@@ -270,10 +270,13 @@ function groupByType(devices: Device[]): { key: string; emoji: string; devices: 
   return order.map((key) => ({ key, emoji: map.get(key)![0].emoji, devices: map.get(key)! }));
 }
 
+// Conector USB-C: cápsula gruesa + barrita central rellena, como el ícono
+// de referencia del usuario (antes solo tenía el contorno, sin la barra).
 function UsbIcon({ color = COLORS.dim }: { color?: string }) {
   return (
     <Svg width={18} height={9} viewBox="0 0 24 12">
       <Rect x={1} y={1} width={22} height={10} rx={5} fill="none" stroke={color} strokeWidth={2} />
+      <Rect x={7} y={4} width={10} height={4} rx={2} fill={color} />
     </Svg>
   );
 }
@@ -297,24 +300,6 @@ function TowerIcon({ color = COLORS.dim, size = 20 }: { color?: string; size?: n
         fill="none"
         strokeLinecap="round"
       />
-    </Svg>
-  );
-}
-
-// Casa con volumen (techo relleno sólido + paredes rellenas semi-
-// transparentes con contorno + puerta sólida + ventanita recortada), en vez
-// del estilo puramente lineal del primer intento — a pedido del usuario,
-// que la quería "menos lineal" y con más carácter (como se ve el emoji del
-// sol al lado). Sigue siendo un solo color (no hay paleta multicolor acá),
-// pero el relleno en dos intensidades del mismo tono le da profundidad en
-// vez de verse como un wireframe.
-function HouseIcon({ color = COLORS.dim, size = 20 }: { color?: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path d="M3,11.5 L12,3.5 L21,11.5 L18.5,11.5 L18.5,9.8 L12,4.9 L5.5,9.8 L5.5,11.5 Z" fill={color} />
-      <Rect x={5.5} y={11} width={13} height={9} rx={1} fill={color} opacity={0.32} stroke={color} strokeWidth={1.2} />
-      <Rect x={10} y={14} width={4} height={6} rx={1} fill={color} />
-      <Rect x={6.5} y={13} width={2.6} height={2.6} rx={0.6} fill={COLORS.bg} />
     </Svg>
   );
 }
@@ -846,7 +831,7 @@ export default function App() {
                       registro" sin agregar una fila nueva ni dejar espacio
                       vacío. */}
                   <IconCircle
-                    icon={<TowerIcon color={COLORS.dim} size={28} />}
+                    icon={<TowerIcon color={COLORS.dim} size={32} />}
                     state={acFlow}
                     watts={`${status.ac_w ?? 0} W`}
                     dirLabel={status.has_ac ? 'Sí' : status.last_ac_short || 'sin registro'}
@@ -918,7 +903,7 @@ export default function App() {
                   <AnimatedPath d="M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={usbActive ? 1 : 0} />
                 </Svg>
                 <View style={styles.iconsRowBottom}>
-                  <IconCircle icon={<HouseIcon color={COLORS.dim} size={22} />} state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
+                  <IconCircle emoji="🏠" state="neutral" watts={`${status.ac_out_w ?? 0} W`} name="CA" />
                   <IconCircle icon={<UsbIcon color={COLORS.dim} />} state="neutral" watts={`${status.usb_out_w ?? 0} W`} name="USB" />
                 </View>
               </View>
@@ -1268,8 +1253,13 @@ const styles = StyleSheet.create({
 
   sectionTitle: { fontSize: 13, color: COLORS.dim, marginBottom: 6 },
   // deviceGroup envuelve un tipo repetido (Ventiladores, Power banks): su
-  // propio header colapsable, separado del título de sección.
-  deviceGroup: { marginBottom: 8 },
+  // propio header colapsable, separado del título de sección. Sin
+  // marginBottom propio: el header (sectionHeaderRow) y cada fila expandida
+  // (deviceBtn) ya traen su propio marginBottom:8 — si el contenedor suma
+  // otro más, colapsado queda el doble de espacio (16px) que el gap normal
+  // entre filas sueltas (8px). El margen final lo pone siempre el último
+  // elemento visible del grupo, sea el header solo o la última fila.
+  deviceGroup: {},
   // Fila del título de grupo: ícono (emoji, badge circular o batería suelta)
   // + texto, alineados por caja de flex en vez de línea base de texto.
   groupTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0 },
