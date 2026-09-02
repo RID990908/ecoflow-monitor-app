@@ -154,19 +154,24 @@ function GroupIconBadge({ bg, size = 26, children }: { bg: string; size?: number
   );
 }
 
-// Mapea el emoji del dispositivo (dato del backend) al ícono dibujado a
-// mano correspondiente para el header de grupo. Grupos sin ícono propio
-// caen al emoji tal cual (fallback, no hay ningún otro grupo repetido hoy).
+// Ícono dibujado a mano para un emoji de dispositivo, sin badge — para usar
+// inline en cualquier fila (chargeRow/powerRow), igual que el resto de los
+// emoji de dispositivo (🥶/💻/📡) que no tienen badge. Ícono SVG puro: sin
+// métrica de fuente, alignItems:'center' del row padre lo centra bien solo,
+// sin nudges manuales por instancia.
+function DeviceIcon({ emoji }: { emoji: string }) {
+  if (emoji === '🔋') return <BatteryIcon state="charging" size={13} />;
+  if (emoji === '🌀') return <FanIcon color={COLORS.dim} size={14} />;
+  return <Text style={styles.groupEmoji}>{emoji}</Text>;
+}
+
+// Mismo mapeo que DeviceIcon pero para el header de grupo (Ventilador ×3,
+// Power bank ×2): fan va en badge circular (mismo estilo que los nodos del
+// diagrama), battery va suelta sin badge/fondo (a pedido del usuario). Sin
+// transform/nudge: DeviceIcon y GroupHeaderIcon usan el mismo BatteryIcon
+// puro, así quedan a la misma altura relativa en cualquier contexto.
 function GroupHeaderIcon({ emoji }: { emoji: string }) {
-  if (emoji === '🔋') {
-    // Sin badge circular ni fondo verde: solo la batería, corrida hacia
-    // arriba para que quede centrada con el título (a pedido del usuario).
-    return (
-      <View style={styles.groupBatteryIcon}>
-        <BatteryIcon state="charging" size={15} />
-      </View>
-    );
-  }
+  if (emoji === '🔋') return <BatteryIcon state="charging" size={15} />;
   if (emoji === '🌀') {
     return (
       <GroupIconBadge bg="#1c232b">
@@ -730,7 +735,13 @@ export default function App() {
                 </View>
                 <View style={styles.ioCenter}>
                   <Text style={styles.verb}>{status.source_verb}</Text>
-                  <Text style={styles.emoji}>{status.source_emoji}</Text>
+                  <View style={styles.emojiWrap}>
+                    {status.source_emoji === '🔋' ? (
+                      <BatteryIcon state="charging" size={20} />
+                    ) : (
+                      <Text style={styles.emoji}>{status.source_emoji}</Text>
+                    )}
+                  </View>
                 </View>
                 <View style={[styles.ioCol, { alignItems: 'flex-end' }]}>
                   <View style={styles.ioLabelRow}>
@@ -872,9 +883,10 @@ export default function App() {
       style={[styles.deviceBtn, d.charged ? styles.deviceBtnOn : styles.deviceBtnOff]}
     >
       <View style={styles.deviceBtnNameCol}>
-        <Text style={styles.deviceBtnName}>
-          {d.emoji} {d.label}
-        </Text>
+        <View style={styles.deviceNameRow}>
+          <DeviceIcon emoji={d.emoji} />
+          <Text style={styles.deviceBtnName}>{d.label}</Text>
+        </View>
         {d.note ? (
           <View style={styles.deviceBtnNoteRow}>
             {/* El backend manda el note con un 🔋 embebido en el string
@@ -934,13 +946,16 @@ export default function App() {
       onPress={() => toggleDevice(d.key, !d.on)}
       style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}
     >
-      <Text style={[styles.deviceBtnName, styles.deviceBtnNameCol]}>
-        {d.fits != null ? (d.fits ? '🟢 ' : '🔴 ') : ''}
-        {d.emoji} {d.label} · {d.watts}W
-        {d.on && d.fits === false && d.deficit_w ? (
-          <Text style={styles.deficitText}> (-{d.deficit_w}W)</Text>
-        ) : null}
-      </Text>
+      <View style={[styles.deviceNameRow, styles.deviceBtnNameCol]}>
+        {d.fits != null ? <Text>{d.fits ? '🟢 ' : '🔴 '}</Text> : null}
+        <DeviceIcon emoji={d.emoji} />
+        <Text style={styles.deviceBtnName}>
+          {d.label} · {d.watts}W
+          {d.on && d.fits === false && d.deficit_w ? (
+            <Text style={styles.deficitText}> (-{d.deficit_w}W)</Text>
+          ) : null}
+        </Text>
+      </View>
       <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>
         {d.on ? 'ON' : 'OFF'}
       </Text>
@@ -1130,6 +1145,7 @@ const styles = StyleSheet.create({
   ioCenter: { alignItems: 'center', paddingTop: 4, flex: 1 },
   verb: { fontSize: 13, color: COLORS.dim },
   emoji: { fontSize: 22, marginTop: 2 },
+  emojiWrap: { marginTop: 2 },
 
   iconItem: { alignItems: 'center', width: 84 },
   iconCircle: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
@@ -1193,9 +1209,6 @@ const styles = StyleSheet.create({
   groupTitle: { fontSize: 13, color: '#cbd5e1', flexShrink: 1 },
   groupEmoji: { fontSize: 15 },
   groupIconCircle: { alignItems: 'center', justifyContent: 'center' },
-  // Power bank: sin badge/fondo, solo la batería — translateY la sube para
-  // que quede centrada con el título en vez de pegada al borde inferior.
-  groupBatteryIcon: { transform: [{ translateY: -6 }] },
   // Header de grupo: mismo box (padding/borde/radio) que deviceBtn, para que
   // "Ventilador ×3"/"Power bank ×2" se vean como una fila más de la lista en
   // vez de texto suelto — se combina con deviceBtn/deviceBtnOn/deviceBtnOff
@@ -1221,6 +1234,7 @@ const styles = StyleSheet.create({
   deviceBtnOff: { backgroundColor: COLORS.card, borderColor: COLORS.border },
   deviceBtnName: { fontSize: 14, color: '#cbd5e1' },
   deviceBtnNameCol: { flexShrink: 1 },
+  deviceNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   deviceBtnNote: { fontSize: 12, color: COLORS.faint },
   deviceBtnNoteRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   deficitText: { color: COLORS.red, fontWeight: '700', fontSize: 12 },
