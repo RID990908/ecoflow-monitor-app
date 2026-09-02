@@ -122,19 +122,21 @@ function BatteryIcon({ state, size = 15 }: { state: FlowState; size?: number }) 
   );
 }
 
-// Ventilador de mesa: aro exterior (outline, como la referencia del
-// usuario) + 3 aspas curvas + hub con punto central — mismo patrón de path
-// repetido + rotation/origin que ya usa PercentRing para el aro. Sin base:
-// a este tamaño (badge de ~15-26px) el pie del ventilador no se leería,
-// así que se deja solo la cabeza (aro + aspas), que es lo reconocible.
+// Ventilador de mesa: aro exterior + 3 aspas tipo cápsula (óvalos
+// alargados, un Rect con rx grande) + hub con punto central — mismo patrón
+// de forma repetida + rotation/origin que ya usa PercentRing para el aro.
+// Cápsulas en vez de la curva paisley anterior: se leen como aspas de
+// ventilador reales a tamaño chico (15-16px), la curva quedaba asimétrica y
+// parecía un molinillo torcido. Sin base: a este tamaño el pie no se
+// leería, así que se deja solo la cabeza (aro + aspas), que es lo
+// reconocible.
 function FanIcon({ color = '#e5e7eb', size = 15 }: { color?: string; size?: number }) {
-  const blade = 'M12,12 C7.5,11 5.5,7.5 8,3.5 C12,4.5 13,9 12,12 Z';
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Circle cx={12} cy={12} r={10.5} stroke={color} strokeWidth={1.8} fill="none" />
-      <Path d={blade} fill={color} />
-      <Path d={blade} fill={color} rotation={120} origin="12,12" />
-      <Path d={blade} fill={color} rotation={240} origin="12,12" />
+      <Rect x={10.6} y={2.3} width={2.8} height={7.7} rx={1.4} fill={color} />
+      <Rect x={10.6} y={2.3} width={2.8} height={7.7} rx={1.4} fill={color} rotation={120} origin="12,12" />
+      <Rect x={10.6} y={2.3} width={2.8} height={7.7} rx={1.4} fill={color} rotation={240} origin="12,12" />
       <Circle cx={12} cy={12} r={2.3} fill={COLORS.bg} stroke={color} strokeWidth={1.6} />
       <Circle cx={12} cy={12} r={0.8} fill={color} />
     </Svg>
@@ -161,7 +163,7 @@ function GroupIconBadge({ bg, size = 26, children }: { bg: string; size?: number
 // sin nudges manuales por instancia.
 function DeviceIcon({ emoji }: { emoji: string }) {
   if (emoji === '🔋') return <BatteryIcon state="charging" size={13} />;
-  if (emoji === '🌀') return <FanIcon color={COLORS.dim} size={14} />;
+  if (emoji === '🌀') return <FanIcon size={14} />;
   return <Text style={styles.groupEmoji}>{emoji}</Text>;
 }
 
@@ -194,8 +196,8 @@ function GroupHeaderIcon({ emoji }: { emoji: string }) {
   if (emoji === '🔋') return <BatteryIcon state="charging" size={15} />;
   if (emoji === '🌀') {
     return (
-      <GroupIconBadge bg="#1c232b">
-        <FanIcon color={COLORS.dim} size={16} />
+      <GroupIconBadge bg="#33404d">
+        <FanIcon size={16} />
       </GroupIconBadge>
     );
   }
