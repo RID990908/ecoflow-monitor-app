@@ -1,5 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -15,8 +14,26 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, Ellipse, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import * as Updates from 'expo-updates';
+
+import type { Device, DevicesResponse, FlowState } from './types';
+import { COLORS } from './theme';
+import { groupByType } from './utils/groupByType';
+import { BatteryIcon } from './components/icons/BatteryIcon';
+import { TowerIcon } from './components/icons/TowerIcon';
+import { SourceEmoji } from './components/icons/SourceEmoji';
+import { UsbIcon } from './components/icons/UsbIcon';
+import { ArrowDownIcon } from './components/icons/ArrowDownIcon';
+import { ArrowUpIcon } from './components/icons/ArrowUpIcon';
+import { PercentRing } from './components/icons/PercentRing';
+import { IconCircle } from './components/icons/IconCircle';
+import { LateralIcon } from './components/icons/LateralIcon';
+import { LateralHook } from './components/icons/LateralHook';
+import { DeviceIcon } from './components/icons/DeviceIcon';
+import { GroupHeaderIcon } from './components/GroupHeaderIcon';
+import { ChargeSummary } from './components/ChargeSummary';
+import { PowerSummary } from './components/PowerSummary';
 
 // react-native-svg no trae Animated.createAnimatedComponent aplicado a Path
 // por defecto; se arma acá porque no hay reanimated como dependencia (ver
@@ -36,21 +53,6 @@ const RING_YELLOW_MAX_PCT = 20;
 // useWindowDimensions() (a diferencia de Dimensions.get) es reactivo: se
 // actualiza solo ante rotación/resize, sin necesidad de listeners manuales.
 const TABLET_BREAKPOINT = 768;
-
-const COLORS = {
-  bg: '#0b0f14',
-  card: '#141b22',
-  border: '#232b33',
-  text: '#f5f5f5',
-  dim: '#9aa4af',
-  faint: '#6b7684',
-  green: '#4ade80',
-  red: '#f87171',
-  yellow: '#eab308',
-  ringTrack: '#1c232b',
-  chargingBg: '#14351f',
-  dischargingBg: '#3a1616',
-};
 
 type StatusResponse = {
   ready: boolean;
@@ -89,437 +91,6 @@ type StatusResponse = {
   delta2_charge_w: number;
   delta2_discharge_w: number;
 };
-
-type Device = {
-  key: string;
-  label: string;
-  emoji: string;
-  watts: number;
-  on: boolean;
-  charged?: boolean | null;
-  fits?: boolean | null;
-  deficit_w?: number | null;
-  note?: string | null;
-};
-type DevicesResponse = { devices: Device[] };
-
-type FlowState = 'neutral' | 'charging' | 'discharging';
-
-function flowColor(state: FlowState) {
-  return state === 'charging' ? COLORS.green : state === 'discharging' ? COLORS.red : COLORS.faint;
-}
-
-// Mismo shape que el ícono de batería del dashboard web (un rect + terminal + relleno).
-function BatteryIcon({ state, size = 15 }: { state: FlowState; size?: number }) {
-  const color = flowColor(state);
-  const w = size * (26 / 15);
-  return (
-    <Svg width={w} height={size} viewBox="0 0 28 16">
-      <Rect x={1} y={1} width={23} height={14} rx={3} fill="none" stroke={color} strokeWidth={2} />
-      <Rect x={25} y={5.5} width={2.5} height={5} rx={1} fill={color} />
-      <Rect x={3.5} y={3.5} width={18} height={9} rx={1.5} fill={color} />
-    </Svg>
-  );
-}
-
-// Ventilador de mesa: aro exterior + 3 aspas tipo paisley (gota curva,
-// gruesa y redondeada) + hub con punto central — mismo patrón de forma
-// repetida + rotation/origin que ya usa PercentRing para el aro. Las
-// cápsulas rectas con aro alrededor se leían como los rayos de un timón de
-// auto; una gota curva y llena (más ancha que el primer intento, que era
-// una curva fina asimétrica) se lee mejor como aspa real. Sin base: a este
-// tamaño (15-16px) el pie no se leería, así que se deja solo la cabeza (aro
-// + aspas), que es lo reconocible.
-function FanIcon({ color = '#e5e7eb', size = 15 }: { color?: string; size?: number }) {
-  const blade = 'M12,12 Q4,9 7,3 Q9,0 12,2 Q13,5 12,12 Z';
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Circle cx={12} cy={12} r={10.5} stroke={color} strokeWidth={1.6} fill="none" />
-      <Path d={blade} fill={color} />
-      <Path d={blade} fill={color} rotation={120} origin="12,12" />
-      <Path d={blade} fill={color} rotation={240} origin="12,12" />
-      <Circle cx={12} cy={12} r={2.3} fill={COLORS.bg} stroke={color} strokeWidth={1.4} />
-      <Circle cx={12} cy={12} r={0.8} fill={color} />
-    </Svg>
-  );
-}
-
-// Badge circular fijo para headers de grupo (Ventilador ×3, Power bank ×2):
-// mismo estilo de nodo que usa el diagrama (iconCircle/lateralIconCircle),
-// con el ícono dibujado a mano correspondiente adentro en vez del emoji del
-// dispositivo — evita el problema de glifos de emoji con métrica vertical
-// distinta (🔋 vs 🌀).
-function GroupIconBadge({ bg = 'transparent', size = 26, children }: { bg?: string; size?: number; children: ReactNode }) {
-  return (
-    <View style={[styles.groupIconCircle, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
-      {children}
-    </View>
-  );
-}
-
-// Ícono dibujado a mano para un emoji de dispositivo, sin badge — para usar
-// inline en cualquier fila (chargeRow/powerRow), igual que el resto de los
-// emoji de dispositivo (🥶/💻/📡) que no tienen badge. Ícono SVG puro: sin
-// métrica de fuente, alignItems:'center' del row padre lo centra bien solo,
-// sin nudges manuales por instancia.
-function DeviceIcon({ emoji }: { emoji: string }) {
-  if (emoji === '🔋') return <BatteryIcon state="charging" size={13} />;
-  if (emoji === '🌀') return <FanIcon size={14} />;
-  return <Text style={styles.groupEmoji}>{emoji}</Text>;
-}
-
-// El emoji de fuente (status.source_emoji) puede venir combinado del backend
-// (ej. "☀️/🔋" cuando usa solar + batería a la vez), no siempre "🔋" solo —
-// por eso el match exacto no alcanzaba. Se parte el string por 🔋 y esa
-// parte puntual se reemplaza por el ícono; el resto (☀️, /, 🔌) queda igual.
-function SourceEmoji({ value }: { value?: string }) {
-  if (!value) return null;
-  if (value === '🔌') return <TowerIcon size={20} />;
-  if (!value.includes('🔋')) return <Text style={styles.emoji}>{value}</Text>;
-  const parts = value.split('🔋');
-  return (
-    <>
-      {parts.map((part, i) => (
-        <Fragment key={i}>
-          {part ? <Text style={styles.emoji}>{part}</Text> : null}
-          {i < parts.length - 1 ? <BatteryIcon state="charging" size={20} /> : null}
-        </Fragment>
-      ))}
-    </>
-  );
-}
-
-// Mismo mapeo que DeviceIcon pero para el header de grupo (Ventilador ×3,
-// Power bank ×2): ambos van en la misma caja circular de 26px (mismo
-// estilo que los nodos del diagrama) para que las filas queden alineadas —
-// battery sin fondo de color (a pedido del usuario), fan con fondo oscuro
-// para contraste. Sin transform/nudge: DeviceIcon y GroupHeaderIcon usan el
-// mismo BatteryIcon puro, así quedan a la misma altura relativa en
-// cualquier contexto.
-function GroupHeaderIcon({ emoji }: { emoji: string }) {
-  if (emoji === '🔋') {
-    return (
-      <GroupIconBadge>
-        <BatteryIcon state="charging" size={15} />
-      </GroupIconBadge>
-    );
-  }
-  if (emoji === '🌀') {
-    return (
-      <GroupIconBadge bg="#33404d">
-        <FanIcon size={16} />
-      </GroupIconBadge>
-    );
-  }
-  return <Text style={styles.groupEmoji}>{emoji}</Text>;
-}
-
-// Resumen colapsado de "Estado de carga": 1 ícono si todos los dispositivos
-// del grupo están igual (verde cargado / rojo descargado), o una fila de
-// mini íconos por dispositivo cuando el estado es mixto. Siempre muestra
-// algo — nunca queda vacío, el color ya cuenta la historia sin abrir el
-// grupo.
-function ChargeSummary({ devices }: { devices: Device[] }) {
-  if (devices.length === 0) return null;
-  const allCharged = devices.every((d) => d.charged);
-  const allDischarged = devices.every((d) => !d.charged);
-  if (allCharged || allDischarged) {
-    return <BatteryIcon state={allCharged ? 'charging' : 'discharging'} size={15} />;
-  }
-  return (
-    <View style={styles.summaryRow}>
-      {devices.map((d) => (
-        <BatteryIcon key={d.key} state={d.charged ? 'charging' : 'discharging'} size={15} />
-      ))}
-    </View>
-  );
-}
-
-// Mismo patrón que ChargeSummary para "Qué tienes encendido": 1 bola si
-// todos están igual (verde on / rojo off), o mini bolas cuando es mixto.
-function PowerSummary({ devices }: { devices: Device[] }) {
-  if (devices.length === 0) return null;
-  const allOn = devices.every((d) => d.on);
-  const allOff = devices.every((d) => !d.on);
-  if (allOn || allOff) {
-    return <View style={[styles.summaryDotMini, { backgroundColor: allOn ? COLORS.green : COLORS.red }]} />;
-  }
-  return (
-    <View style={styles.summaryRow}>
-      {devices.map((d) => (
-        <View key={d.key} style={[styles.summaryDotMini, { backgroundColor: d.on ? COLORS.green : COLORS.red }]} />
-      ))}
-    </View>
-  );
-}
-
-// Agrupa dispositivos del mismo tipo (label sin el número final: "Ventilador
-// 1"/"Ventilador 2" -> "Ventilador") preservando el orden de aparición. Los
-// grupos de un solo ítem (Nevera, Laptop, Ecoplay) se renderizan como fila
-// suelta; solo los grupos con más de un ítem son colapsables.
-function groupByType(devices: Device[]): { key: string; emoji: string; devices: Device[] }[] {
-  const order: string[] = [];
-  const map = new Map<string, Device[]>();
-  for (const d of devices) {
-    const key = d.label.replace(/\s*\d+$/, '').trim();
-    if (!map.has(key)) {
-      map.set(key, []);
-      order.push(key);
-    }
-    map.get(key)!.push(d);
-  }
-  return order.map((key) => ({ key, emoji: map.get(key)![0].emoji, devices: map.get(key)! }));
-}
-
-// Conector USB-C: cápsula gruesa + barrita central rellena, como el ícono
-// de referencia del usuario (antes solo tenía el contorno, sin la barra).
-function UsbIcon({ color = COLORS.dim }: { color?: string }) {
-  return (
-    <Svg width={18} height={9} viewBox="0 0 24 12">
-      <Rect x={1} y={1} width={22} height={10} rx={5} fill="none" stroke={color} strokeWidth={2} />
-      <Rect x={7} y={4} width={10} height={4} rx={2} fill={color} />
-    </Svg>
-  );
-}
-
-// Torre de alta tensión a color, calcada de la referencia del usuario
-// (vector Flaticon de pilón eléctrico): cuerpo gris-acero con degradé,
-// alas navy en 2 niveles terminando en aisladores celestes, base oscura.
-// A diferencia del resto de íconos (UsbIcon, BatteryIcon) usa paleta fija
-// en vez de currentColor — decisión consciente del usuario de sacrificar
-// la reactividad al estado (gris/verde/rojo) a cambio de fidelidad visual
-// a la foto de referencia. Reemplaza el emoji 🔌 en los nodos AC/CA del
-// diagrama y en el "Cargando por" (source-emoji).
-function TowerIcon({ size = 20 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Defs>
-        <LinearGradient id="towerGrad" x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0" stopColor="#c2d0d8" />
-          <Stop offset="1" stopColor="#7c8f9c" />
-        </LinearGradient>
-        <LinearGradient id="wingGrad" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#4a6072" />
-          <Stop offset="1" stopColor="#1e2a35" />
-        </LinearGradient>
-        <LinearGradient id="insulatorGrad" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#9df0fb" />
-          <Stop offset="1" stopColor="#1fa8c2" />
-        </LinearGradient>
-      </Defs>
-      <Rect x="3.5" y="21" width="17" height="1.8" rx="0.9" fill="#12161b" />
-      <Rect x="3.5" y="21" width="17" height="0.6" rx="0.3" fill="#333b43" opacity={0.7} />
-      <Path
-        d="M12,1.6 L7.2,21 M12,1.6 L16.8,21"
-        stroke="url(#towerGrad)"
-        strokeWidth={1.7}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M9.3,8.6 L14.7,8.6 M9.3,8.6 L14.7,14 M14.7,8.6 L9.3,14 M8.3,14 L15.7,14 M8.3,14 L11.6,21 M15.7,14 L12.4,21"
-        stroke="url(#towerGrad)"
-        strokeWidth={1.1}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M9.6,7.6 Q7.5,7.8 5,9.3 Q7.6,8.3 9.8,8.5 Z" fill="url(#wingGrad)" />
-      <Path d="M14.4,7.6 Q16.5,7.8 19,9.3 Q16.4,8.3 14.2,8.5 Z" fill="url(#wingGrad)" />
-      <Path d="M9,12.6 Q6.3,12.9 4,14.7 Q6.9,13.4 9.2,13.6 Z" fill="url(#wingGrad)" />
-      <Path d="M15,12.6 Q17.7,12.9 20,14.7 Q17.1,13.4 14.8,13.6 Z" fill="url(#wingGrad)" />
-      <Path
-        d="M5,9.3 L5,10.3 M19,9.3 L19,10.3 M4,14.7 L4,15.7 M20,14.7 L20,15.7"
-        stroke="#9aa8b0"
-        strokeWidth={1}
-        strokeLinecap="round"
-      />
-      <Ellipse cx="5" cy="11" rx="1.5" ry="1" fill="url(#insulatorGrad)" />
-      <Ellipse cx="19" cy="11" rx="1.5" ry="1" fill="url(#insulatorGrad)" />
-      <Ellipse cx="4" cy="16.4" rx="1.5" ry="1" fill="url(#insulatorGrad)" />
-      <Ellipse cx="20" cy="16.4" rx="1.5" ry="1" fill="url(#insulatorGrad)" />
-    </Svg>
-  );
-}
-
-function ArrowDownIcon({ color }: { color: string }) {
-  return (
-    <Svg width={14} height={14} viewBox="0 0 24 24">
-      <Path
-        d="M12 3v10m0 0l-4-4m4 4l4-4M4 19h16"
-        stroke={color}
-        strokeWidth={2}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ArrowUpIcon({ color }: { color: string }) {
-  return (
-    <Svg width={14} height={14} viewBox="0 0 24 24">
-      <Path
-        d="M12 21V11m0 0l-4 4m4-4l4 4M4 5h16"
-        stroke={color}
-        strokeWidth={2}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-// Anillo circular por porcentaje — equivalente RN del conic-gradient del CSS web.
-function PercentRing({ pct, color, size = 240 }: { pct: number; color: string; size?: number }) {
-  const stroke = 14;
-  const r = (size - stroke) / 2;
-  const c = size / 2;
-  const circumference = 2 * Math.PI * r;
-  const dash = circumference * Math.min(Math.max(pct, 0), 100) / 100;
-  return (
-    <Svg width={size} height={size} style={{ position: 'absolute' }}>
-      <Circle cx={c} cy={c} r={r} stroke={COLORS.ringTrack} strokeWidth={stroke} fill="none" />
-      <Circle
-        cx={c}
-        cy={c}
-        r={r}
-        stroke={color}
-        strokeWidth={stroke}
-        fill="none"
-        strokeDasharray={`${dash} ${circumference}`}
-        strokeLinecap="round"
-        rotation={-90}
-        origin={`${c}, ${c}`}
-      />
-    </Svg>
-  );
-}
-
-function IconCircle({
-  emoji,
-  icon,
-  state,
-  watts,
-  dirLabel,
-  name,
-}: {
-  emoji?: string;
-  icon?: ReactNode;
-  state: FlowState;
-  watts: string;
-  dirLabel?: string;
-  name: string;
-}) {
-  const bg = state === 'charging' ? COLORS.chargingBg : state === 'discharging' ? COLORS.dischargingBg : '#1c232b';
-  const dirColor = flowColor(state);
-  return (
-    <View style={styles.iconItem}>
-      <View style={[styles.iconCircle, { backgroundColor: bg }]}>
-        {icon ?? <Text style={{ fontSize: 22 }}>{emoji}</Text>}
-      </View>
-      <Text style={styles.iconWatts}>{watts}</Text>
-      {dirLabel ? <Text style={[styles.iconDir, { color: dirColor }]}>{dirLabel}</Text> : null}
-      <Text style={styles.iconName}>{name}</Text>
-    </View>
-  );
-}
-
-// Nodo lateral compacto (hook que sale del anillo hacia Delta 2/Batería
-// Extra) — versión angosta de IconCircle, sin dirLabel (el web tampoco lo
-// muestra ahí, ver .icon-item.lateral-icon en ecoflow_telegram_monitor.py).
-function LateralIcon({
-  state,
-  watts,
-  name,
-  side,
-  pct,
-  remain,
-}: {
-  state: FlowState;
-  watts: string;
-  name: string;
-  side: 'left' | 'right';
-  // pct/remain: % y tiempo de carga o descarga DE ESTA batería puntual
-  // (no el combinado del centro del aro) — antes vivían en una tarjeta
-  // aparte arriba a la izquierda (BatteriesSection/BatteryRow), movidos
-  // acá a pedido del usuario para tener todo junto al nodo del aro. remain
-  // ya viene calculado por el backend contemplando ambas direcciones
-  // (charging/discharging), no hace falta re-derivarlo acá.
-  pct?: number | null;
-  remain?: { charging: boolean; text: string } | null;
-}) {
-  const bg = state === 'charging' ? COLORS.chargingBg : state === 'discharging' ? COLORS.dischargingBg : '#1c232b';
-  const remainColor = remain ? (remain.charging ? COLORS.green : COLORS.red) : undefined;
-  return (
-    <View style={side === 'right' ? styles.lateralIconRight : styles.lateralIconLeft}>
-      <View style={[styles.lateralIconCircle, { backgroundColor: bg }]}>
-        <BatteryIcon state={state} size={17} />
-      </View>
-      <Text style={styles.lateralIconWatts}>{watts}</Text>
-      <Text style={styles.lateralIconName}>{name}</Text>
-      {pct != null ? <Text style={styles.lateralIconPct}>{pct.toFixed(1)}%</Text> : null}
-      {remain ? <Text style={[styles.lateralIconRemain, { color: remainColor }]}>{remain.text}</Text> : null}
-    </View>
-  );
-}
-
-// Conector "hook" lateral: sale del anillo (borde derecho o izquierdo, punto
-// medio vertical), va horizontal y dobla 90° con esquina redondeada — exacto
-// mismo `d` que .lateral-overlay/.lateral-overlay-left en
-// ecoflow_telegram_monitor.py (izquierda = mismas coordenadas en x negativo).
-// KEEP IN SYNC WITH ecoflow_telegram_monitor.py .flow-connectors.lateral.
-function LateralHook({
-  side,
-  charging,
-  discharging,
-  dashOffset,
-}: {
-  side: 'left' | 'right';
-  charging: boolean;
-  discharging: boolean;
-  dashOffset: Animated.AnimatedInterpolation<string | number>;
-}) {
-  // El lado izquierdo usa coordenadas X negativas (el gancho sale hacia la
-  // izquierda del anillo). Antes ambos lados compartían el mismo viewBox
-  // "0 0 64 40" y dependían de overflow:'visible' para que el contenido
-  // negativo "se viera" fuera de los límites del box — funciona en web
-  // (react-native-web) pero no se puede confiar en eso en nativo. Ahora el
-  // viewBox y la posición del propio Svg coinciden exactamente con el rango
-  // de coordenadas que cada lado realmente usa, sin depender de overflow.
-  const chargePath = side === 'right' ? 'M 0,0 L 54,0 Q 62,0 62,8 L 62,38' : 'M 0,0 L -54,0 Q -62,0 -62,8 L -62,38';
-  const dischargePath = side === 'right' ? 'M 62,38 L 62,8 Q 62,0 54,0 L 0,0' : 'M -62,38 L -62,8 Q -62,0 -54,0 L 0,0';
-  const viewBox = side === 'right' ? '0 0 64 40' : '-64 0 64 40';
-  const svgStyle = side === 'right' ? styles.lateralSvg : [styles.lateralSvg, styles.lateralSvgLeft];
-  return (
-    <Svg width={64} height={40} viewBox={viewBox} style={svgStyle}>
-      <Path d={chargePath} stroke="#232c36" strokeWidth={2} fill="none" />
-      <AnimatedPath
-        d={chargePath}
-        stroke={COLORS.green}
-        strokeWidth={2.5}
-        strokeLinecap="butt"
-        strokeDasharray="3,4"
-        strokeDashoffset={dashOffset}
-        fill="none"
-        opacity={charging ? 1 : 0}
-      />
-      <AnimatedPath
-        d={dischargePath}
-        stroke={COLORS.red}
-        strokeWidth={2.5}
-        strokeLinecap="butt"
-        strokeDasharray="3,4"
-        strokeDashoffset={dashOffset}
-        fill="none"
-        opacity={discharging ? 1 : 0}
-      />
-    </Svg>
-  );
-}
 
 export default function App() {
   const { width } = useWindowDimensions();
@@ -1234,15 +805,9 @@ const styles = StyleSheet.create({
   ioValue: { fontSize: 20, fontWeight: '600', marginTop: 2, color: COLORS.text, fontVariant: ['tabular-nums'] },
   ioCenter: { alignItems: 'center', paddingTop: 4, flex: 1 },
   verb: { fontSize: 13, color: COLORS.dim },
-  emoji: { fontSize: 22, marginTop: 2 },
   emojiWrap: { marginTop: 2 },
   sourceEmojiRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
 
-  iconItem: { alignItems: 'center', width: 84 },
-  iconCircle: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-  iconWatts: { fontSize: 12, color: COLORS.dim, marginTop: 5, fontVariant: ['tabular-nums'] },
-  iconDir: { fontSize: 11, marginTop: 1, color: COLORS.dim, height: 14 },
-  iconName: { fontSize: 10, color: COLORS.faint, marginTop: 2, letterSpacing: 0.3, textTransform: 'uppercase' },
   flowTopWrap: { width: 300, maxWidth: '100%', alignSelf: 'center', paddingBottom: 122 },
   iconsRowTop: { width: 300, maxWidth: 300, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-around' },
   flowConnectorsTop: { position: 'absolute', left: 0, bottom: 0 },
@@ -1262,19 +827,6 @@ const styles = StyleSheet.create({
   // ecoflow_telegram_monitor.py. width/height:0 para no consumir layout.
   lateralOverlayRight: { position: 'absolute', left: 240, top: 120, width: 0, height: 0 },
   lateralOverlayLeft: { position: 'absolute', left: 0, top: 120, width: 0, height: 0 },
-  lateralSvg: { overflow: 'visible' },
-  // Con viewBox "-64 0 64 40" el contenido (x entre -62 y 0) queda pegado
-  // al borde DERECHO de la caja renderizada del Svg — sin mover la caja,
-  // el gancho se vería 64px más a la derecha de lo que corresponde. Se
-  // corre la caja misma 64px a la izquierda para compensar.
-  lateralSvgLeft: { marginLeft: -64 },
-  lateralIconRight: { position: 'absolute', left: 34, top: 18, width: 56, alignItems: 'center' },
-  lateralIconLeft: { position: 'absolute', left: -90, top: 18, width: 56, alignItems: 'center' },
-  lateralIconCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  lateralIconWatts: { fontSize: 11, color: COLORS.dim, marginTop: 3, fontVariant: ['tabular-nums'] },
-  lateralIconName: { fontSize: 9, color: COLORS.faint, marginTop: 2, letterSpacing: 0.3, textTransform: 'uppercase' },
-  lateralIconPct: { fontSize: 12, fontWeight: '700', color: '#e5e7eb', marginTop: 3, fontVariant: ['tabular-nums'] },
-  lateralIconRemain: { fontSize: 10, fontWeight: '600', marginTop: 1, fontVariant: ['tabular-nums'] },
 
   pct: { fontSize: 48, fontWeight: '700', color: COLORS.text, fontVariant: ['tabular-nums'] },
   pctSubLabel: { fontSize: 13, color: COLORS.dim, marginTop: 8 },
@@ -1303,8 +855,6 @@ const styles = StyleSheet.create({
   // + texto, alineados por caja de flex en vez de línea base de texto.
   groupTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0 },
   groupTitle: { fontSize: 13, color: '#cbd5e1', flexShrink: 1 },
-  groupEmoji: { fontSize: 15 },
-  groupIconCircle: { alignItems: 'center', justifyContent: 'center' },
   // Header de grupo: mismo box (padding/borde/radio) que deviceBtn, para que
   // "Ventilador ×3"/"Power bank ×2" se vean como una fila más de la lista en
   // vez de texto suelto — se combina con deviceBtn/deviceBtnOn/deviceBtnOff
@@ -1318,8 +868,6 @@ const styles = StyleSheet.create({
   },
   sectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
   chevron: { color: COLORS.faint, fontSize: 14, width: 12, textAlign: 'center' },
-  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  summaryDotMini: { width: 12, height: 12, borderRadius: 6 },
 
   devices: { width: '100%', maxWidth: 380, marginTop: 14 },
   deviceBtn: {
