@@ -1,4 +1,5 @@
 import { StyleSheet, Text } from 'react-native';
+import { AppleIcon } from './icons/AppleIcon';
 import { BatteryIcon } from './icons/BatteryIcon';
 import { FanIcon } from './icons/FanIcon';
 import { GroupIconBadge } from './icons/GroupIconBadge';
@@ -22,6 +23,13 @@ export function GroupHeaderIcon({ emoji }: { emoji: string }) {
     return (
       <GroupIconBadge bg="#33404d">
         <FanIcon size={16} />
+      </GroupIconBadge>
+    );
+  }
+  if (emoji === '') {
+    return (
+      <GroupIconBadge bg="#33404d">
+        <AppleIcon size={15} />
       </GroupIconBadge>
     );
   }

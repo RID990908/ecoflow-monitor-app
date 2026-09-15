@@ -1,4 +1,5 @@
 import { StyleSheet, Text } from 'react-native';
+import { AppleIcon } from './AppleIcon';
 import { BatteryIcon } from './BatteryIcon';
 import { FanIcon } from './FanIcon';
 
@@ -10,6 +11,7 @@ import { FanIcon } from './FanIcon';
 export function DeviceIcon({ emoji }: { emoji: string }) {
   if (emoji === '🔋') return <BatteryIcon state="charging" size={13} />;
   if (emoji === '🌀') return <FanIcon size={14} />;
+  if (emoji === '') return <AppleIcon size={13} />;
   return <Text style={styles.groupEmoji}>{emoji}</Text>;
 }
 
