@@ -32,7 +32,6 @@ import { LateralIcon } from './components/icons/LateralIcon';
 import { LateralHook } from './components/icons/LateralHook';
 import { DeviceIcon } from './components/icons/DeviceIcon';
 import { GroupHeaderIcon } from './components/GroupHeaderIcon';
-import { ChargeSummary } from './components/ChargeSummary';
 import { PowerSummary } from './components/PowerSummary';
 
 // react-native-svg no trae Animated.createAnimatedComponent aplicado a Path
@@ -274,8 +273,8 @@ export default function App() {
     }
   }, [loadDevices, clearOn]);
 
-  // Modal de % de Ecoplay (POST /api/ecoplay), único trigger: el badge de
-  // Ecoplay en "Estado de carga" cuando está descargada (ver toggleCharged).
+  // Modal de % de Ecoplay (POST /api/ecoplay), único trigger: el badge
+  // "descargada" de Ecoplay en "Qué tienes encendido" (ver toggleCharged).
   const submitEcoplayPct = useCallback(async () => {
     const pct = parseInt(ecoplayPctInput, 10);
     if (ecoplayPctInput === '' || Number.isNaN(pct) || pct < 0 || pct > 100) {
@@ -535,78 +534,13 @@ export default function App() {
     </View>
   ) : null;
 
-  // Estado de carga: tocable, mismo patrón que "Qué tienes encendido" pero
-  // apuntando a /api/devices/charged (mirroring web dashboard). Ítems únicos
-  // (Ecoplay) van sueltos; grupos con más de un ítem (Ventiladores, Power
-  // banks) van colapsados dentro de un header con resumen — ver groupByType.
-  // Fuera de ecoplay, "cargada/descargada" ya no se marca (a pedido del
-  // usuario): el semáforo de fits en "Qué tienes encendido" es la única
-  // señal que queda para los demás dispositivos.
-  const chargeableDevices = devices.filter((d) => d.charged != null && d.key === 'ecoplay');
-  const chargeRow = (d: Device) => (
-    <Pressable
-      key={d.key}
-      onPress={() => toggleCharged(d.key, !d.charged)}
-      style={[styles.deviceBtn, d.charged ? styles.deviceBtnOn : styles.deviceBtnOff]}
-    >
-      <View style={styles.deviceBtnNameCol}>
-        <View style={styles.deviceNameRow}>
-          <DeviceIcon emoji={d.emoji} />
-          <Text style={styles.deviceBtnName}>{d.label}</Text>
-        </View>
-        {d.note ? (
-          <View style={styles.deviceBtnNoteRow}>
-            {/* El backend manda el note con un 🔋 embebido en el string
-                (ej. "🔋 100%: 20:44 (Meta: 07:30)") — se saca y se reemplaza
-                por el mismo BatteryIcon SVG del resto de la app. */}
-            {d.note.startsWith('🔋') ? <BatteryIcon state="charging" size={11} /> : null}
-            <Text style={styles.deviceBtnNote}>{d.note.replace(/^🔋\s*/, '')}</Text>
-          </View>
-        ) : null}
-      </View>
-      {/* Sin texto "cargada"/"descargada": el color del ícono (verde/rojo)
-          ya lo dice solo. */}
-      <BatteryIcon state={d.charged ? 'charging' : 'discharging'} size={16} />
-    </Pressable>
-  );
-  const estadoCargaSection = chargeableDevices.length > 0 ? (
-    <View style={styles.devices}>
-      <Text style={styles.sectionTitle}>Estado de carga</Text>
-      {groupByType(chargeableDevices).map((g) =>
-        g.devices.length === 1 ? (
-          chargeRow(g.devices[0])
-        ) : (
-          <View key={g.key} style={styles.deviceGroup}>
-            <Pressable
-              onPress={() => toggleGroup(`carga:${g.key}`)}
-              style={[
-                styles.sectionHeaderRow,
-                g.devices.every((d) => d.charged) ? styles.deviceBtnOn : styles.deviceBtnOff,
-              ]}
-              hitSlop={8}
-            >
-              <View style={styles.groupTitleRow}>
-                <GroupHeaderIcon emoji={g.emoji} />
-                <Text style={styles.groupTitle} numberOfLines={1}>
-                  {g.key} ×{g.devices.length}
-                </Text>
-              </View>
-              <View style={styles.sectionHeaderRight}>
-                {!expandedGroups[`carga:${g.key}`] ? <ChargeSummary devices={g.devices} /> : null}
-                <Text style={styles.chevron}>{expandedGroups[`carga:${g.key}`] ? '▾' : '▸'}</Text>
-              </View>
-            </Pressable>
-            {expandedGroups[`carga:${g.key}`] ? g.devices.map(chargeRow) : null}
-          </View>
-        )
-      )}
-    </View>
-  ) : null;
-
-  // Dispositivos: mismo patrón de agrupamiento que Estado de carga. Fuera de
-  // ecoplay ya no son clickeables ni marcan ON/OFF (a pedido del usuario) —
-  // solo queda el punto 🟢/🔴 de fits (entra o no en el excedente actual).
-  // Ecoplay es el único que conserva el toggle on/off real.
+  // Dispositivos: fuera de ecoplay ya no son clickeables ni marcan ON/OFF (a
+  // pedido del usuario) — solo queda el punto 🟢/🔴 de fits (entra o no en
+  // el excedente actual). Ecoplay es el único dispositivo con estado propio,
+  // así que junta acá ambos toggles (on/off real y cargada/descargada de su
+  // batería interna) en una sola fila en vez de vivir partido entre "Qué
+  // tienes encendido" y una sección "Estado de carga" aparte que antes solo
+  // terminaba mostrándolo a él (mirroring web dashboard).
   const powerRow = (d: Device) => {
     if (d.key !== 'ecoplay') {
       return (
@@ -620,25 +554,41 @@ export default function App() {
       );
     }
     return (
-      <Pressable
-        key={d.key}
-        onPress={() => toggleDevice(d.key, !d.on)}
-        style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}
-      >
-        <View style={[styles.deviceNameRow, styles.deviceBtnNameCol]}>
-          {d.fits != null ? <Text>{d.fits ? '🟢 ' : '🔴 '}</Text> : null}
-          <DeviceIcon emoji={d.emoji} />
-          <Text style={styles.deviceBtnName}>
-            {d.label} · {d.watts}W
-            {d.on && d.fits === false && d.deficit_w ? (
-              <Text style={styles.deficitText}> (-{d.deficit_w}W)</Text>
-            ) : null}
-          </Text>
+      <View key={d.key} style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}>
+        <View style={styles.deviceBtnNameCol}>
+          <View style={styles.deviceNameRow}>
+            {d.fits != null ? <Text>{d.fits ? '🟢 ' : '🔴 '}</Text> : null}
+            <DeviceIcon emoji={d.emoji} />
+            <Text style={styles.deviceBtnName}>
+              {d.label} · {d.watts}W
+              {d.on && d.fits === false && d.deficit_w ? (
+                <Text style={styles.deficitText}> (-{d.deficit_w}W)</Text>
+              ) : null}
+            </Text>
+          </View>
+          {d.note ? (
+            <View style={styles.deviceBtnNoteRow}>
+              {/* El backend manda el note con un 🔋 embebido en el string
+                  (ej. "🔋 100%: 20:44 (Meta: 07:30)") — se saca y se reemplaza
+                  por el mismo BatteryIcon SVG del resto de la app. */}
+              {d.note.startsWith('🔋') ? <BatteryIcon state="charging" size={11} /> : null}
+              <Text style={styles.deviceBtnNote}>{d.note.replace(/^🔋\s*/, '')}</Text>
+            </View>
+          ) : null}
         </View>
-        <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>
-          {d.on ? 'ON' : 'OFF'}
-        </Text>
-      </Pressable>
+        <View style={styles.stateGroup}>
+          <Pressable onPress={() => toggleDevice(d.key, !d.on)} hitSlop={8}>
+            <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>
+              {d.on ? 'ON' : 'OFF'}
+            </Text>
+          </Pressable>
+          {/* Sin texto "cargada"/"descargada": el color del ícono
+              (verde/rojo) ya lo dice solo. */}
+          <Pressable onPress={() => toggleCharged(d.key, !d.charged)} hitSlop={8}>
+            <BatteryIcon state={d.charged ? 'charging' : 'discharging'} size={16} />
+          </Pressable>
+        </View>
+      </View>
     );
   };
   const dispositivosSection = devices.length > 0 ? (
@@ -712,7 +662,6 @@ export default function App() {
                 {updatedRowSection}
               </View>
               <View style={styles.tabletColRight}>
-                {estadoCargaSection}
                 {etaBoxSection}
               </View>
             </View>
@@ -732,7 +681,6 @@ export default function App() {
               {centerFlow}
               {updatedRowSection}
               {etaBoxSection}
-              {estadoCargaSection}
               {dispositivosSection}
             </>
           )}
@@ -899,6 +847,7 @@ const styles = StyleSheet.create({
   deviceBtnNoteRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   deficitText: { color: COLORS.red, fontWeight: '700', fontSize: 12 },
   deviceState: { fontWeight: '700', fontSize: 12, letterSpacing: 0.5 },
+  stateGroup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   updatedRow: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
   liveDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
