@@ -539,7 +539,10 @@ export default function App() {
   // apuntando a /api/devices/charged (mirroring web dashboard). Ítems únicos
   // (Ecoplay) van sueltos; grupos con más de un ítem (Ventiladores, Power
   // banks) van colapsados dentro de un header con resumen — ver groupByType.
-  const chargeableDevices = devices.filter((d) => d.charged != null);
+  // Fuera de ecoplay, "cargada/descargada" ya no se marca (a pedido del
+  // usuario): el semáforo de fits en "Qué tienes encendido" es la única
+  // señal que queda para los demás dispositivos.
+  const chargeableDevices = devices.filter((d) => d.charged != null && d.key === 'ecoplay');
   const chargeRow = (d: Device) => (
     <Pressable
       key={d.key}
@@ -600,28 +603,44 @@ export default function App() {
     </View>
   ) : null;
 
-  // Dispositivos: mismo patrón de agrupamiento que Estado de carga.
-  const powerRow = (d: Device) => (
-    <Pressable
-      key={d.key}
-      onPress={() => toggleDevice(d.key, !d.on)}
-      style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}
-    >
-      <View style={[styles.deviceNameRow, styles.deviceBtnNameCol]}>
-        {d.fits != null ? <Text>{d.fits ? '🟢 ' : '🔴 '}</Text> : null}
-        <DeviceIcon emoji={d.emoji} />
-        <Text style={styles.deviceBtnName}>
-          {d.label} · {d.watts}W
-          {d.on && d.fits === false && d.deficit_w ? (
-            <Text style={styles.deficitText}> (-{d.deficit_w}W)</Text>
-          ) : null}
+  // Dispositivos: mismo patrón de agrupamiento que Estado de carga. Fuera de
+  // ecoplay ya no son clickeables ni marcan ON/OFF (a pedido del usuario) —
+  // solo queda el punto 🟢/🔴 de fits (entra o no en el excedente actual).
+  // Ecoplay es el único que conserva el toggle on/off real.
+  const powerRow = (d: Device) => {
+    if (d.key !== 'ecoplay') {
+      return (
+        <View key={d.key} style={[styles.deviceBtn, styles.deviceBtnOff]}>
+          <View style={[styles.deviceNameRow, styles.deviceBtnNameCol]}>
+            {d.fits != null ? <Text>{d.fits ? '🟢 ' : '🔴 '}</Text> : null}
+            <DeviceIcon emoji={d.emoji} />
+            <Text style={styles.deviceBtnName}>{d.label} · {d.watts}W</Text>
+          </View>
+        </View>
+      );
+    }
+    return (
+      <Pressable
+        key={d.key}
+        onPress={() => toggleDevice(d.key, !d.on)}
+        style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}
+      >
+        <View style={[styles.deviceNameRow, styles.deviceBtnNameCol]}>
+          {d.fits != null ? <Text>{d.fits ? '🟢 ' : '🔴 '}</Text> : null}
+          <DeviceIcon emoji={d.emoji} />
+          <Text style={styles.deviceBtnName}>
+            {d.label} · {d.watts}W
+            {d.on && d.fits === false && d.deficit_w ? (
+              <Text style={styles.deficitText}> (-{d.deficit_w}W)</Text>
+            ) : null}
+          </Text>
+        </View>
+        <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>
+          {d.on ? 'ON' : 'OFF'}
         </Text>
-      </View>
-      <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>
-        {d.on ? 'ON' : 'OFF'}
-      </Text>
-    </Pressable>
-  );
+      </Pressable>
+    );
+  };
   const dispositivosSection = devices.length > 0 ? (
     <View style={styles.devices}>
       <Text style={styles.sectionTitle}>Qué tienes encendido</Text>
@@ -632,10 +651,7 @@ export default function App() {
           <View key={g.key} style={styles.deviceGroup}>
             <Pressable
               onPress={() => toggleGroup(`dispositivos:${g.key}`)}
-              style={[
-                styles.sectionHeaderRow,
-                g.devices.every((d) => d.on) ? styles.deviceBtnOn : styles.deviceBtnOff,
-              ]}
+              style={[styles.sectionHeaderRow, styles.deviceBtnOff]}
               hitSlop={8}
             >
               <View style={styles.groupTitleRow}>

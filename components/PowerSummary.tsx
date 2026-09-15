@@ -2,19 +2,22 @@ import { StyleSheet, View } from 'react-native';
 import type { Device } from '../types';
 import { COLORS } from '../theme';
 
-// Mismo patrón que ChargeSummary para "Qué tienes encendido": 1 bola si
-// todos están igual (verde on / rojo off), o mini bolas cuando es mixto.
+// Grupos colapsados (Ventilador/Power bank) ya no resumen on/off (a pedido
+// del usuario, fuera de ecoplay no se marca encendido/apagado): resumen
+// mismo patrón visual pero basado en fits (entra o no en el excedente
+// actual), igual que el punto 🟢/🔴 de cada fila individual.
 export function PowerSummary({ devices }: { devices: Device[] }) {
-  if (devices.length === 0) return null;
-  const allOn = devices.every((d) => d.on);
-  const allOff = devices.every((d) => !d.on);
-  if (allOn || allOff) {
-    return <View style={[styles.summaryDotMini, { backgroundColor: allOn ? COLORS.green : COLORS.red }]} />;
+  const withFits = devices.filter((d) => d.fits != null);
+  if (withFits.length === 0) return null;
+  const allFits = withFits.every((d) => d.fits);
+  const noneFits = withFits.every((d) => !d.fits);
+  if (allFits || noneFits) {
+    return <View style={[styles.summaryDotMini, { backgroundColor: allFits ? COLORS.green : COLORS.red }]} />;
   }
   return (
     <View style={styles.summaryRow}>
-      {devices.map((d) => (
-        <View key={d.key} style={[styles.summaryDotMini, { backgroundColor: d.on ? COLORS.green : COLORS.red }]} />
+      {withFits.map((d) => (
+        <View key={d.key} style={[styles.summaryDotMini, { backgroundColor: d.fits ? COLORS.green : COLORS.red }]} />
       ))}
     </View>
   );
