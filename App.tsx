@@ -181,7 +181,8 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE}/api/devices`);
       const data: DevicesResponse = await res.json();
-      setDevices(data.devices ?? []);
+      // Ecoplay ya no se usa: se descarta aunque el backend lo siga mandando.
+      setDevices((data.devices ?? []).filter((d) => d.key !== 'ecoplay'));
     } catch {
       // silencioso
     }
