@@ -2,14 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -20,7 +18,6 @@ import * as Updates from 'expo-updates';
 import type { Device, DevicesResponse, FlowState } from './types';
 import { COLORS } from './theme';
 import { groupByType } from './utils/groupByType';
-import { BatteryIcon } from './components/icons/BatteryIcon';
 import { TowerIcon } from './components/icons/TowerIcon';
 import { SourceEmoji } from './components/icons/SourceEmoji';
 import { UsbIcon } from './components/icons/UsbIcon';
@@ -100,12 +97,9 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [live, setLive] = useState<'ok' | 'stale'>('stale');
   const [updatedLabel, setUpdatedLabel] = useState('Conectando…');
-  const [ecoplayModalVisible, setEcoplayModalVisible] = useState(false);
-  const [ecoplayPctInput, setEcoplayPctInput] = useState('');
-  const [ecoplayModalError, setEcoplayModalError] = useState('');
   // Grupos de dispositivos del mismo tipo (ej. "Ventilador 1/2/3", "Power
   // bank 1/2") colapsados por default — solo esos, no la sección entera:
-  // ítems únicos (Nevera, Laptop, Ecoplay) siempre se muestran en su fila
+  // ítems únicos (Nevera, Laptop) siempre se muestran en su fila
   // completa. Key = `${sección}:${nombre del grupo}`, ausente = colapsado.
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const toggleGroup = useCallback((key: string) => {
@@ -244,17 +238,8 @@ export default function App() {
     }
   }, [loadDevices, clearCharged]);
 
-  // Mismo patrón que toggleDevice, apuntando a /api/devices/charged. Caso
-  // especial ecoplay: pasar a "cargada" abre el modal de % (fuente de verdad
-  // real, igual que en web) en vez de togglear directo; pasar a "descargada"
-  // sí es un toggle directo (el backend ya sincroniza ECOPLAY_LAST_PCT=0).
+  // Mismo patrón que toggleDevice, apuntando a /api/devices/charged.
   const toggleCharged = useCallback(async (key: string, settingCharged: boolean) => {
-    if (key === 'ecoplay' && settingCharged) {
-      setEcoplayModalError('');
-      setEcoplayPctInput('');
-      setEcoplayModalVisible(true);
-      return;
-    }
     setDevices((prev) => prev.map((d) => (d.key === key ? { ...d, charged: settingCharged, on: settingCharged ? false : d.on } : d)));
     try {
       const res = await fetch(`${API_BASE}/api/devices/charged`, {
@@ -272,50 +257,6 @@ export default function App() {
       loadDevices();
     }
   }, [loadDevices, clearOn]);
-
-  // Modal de % de Ecoplay (POST /api/ecoplay), único trigger: el badge
-  // "descargada" de Ecoplay en "Qué tienes encendido" (ver toggleCharged).
-  const submitEcoplayPct = useCallback(async () => {
-    const pct = parseInt(ecoplayPctInput, 10);
-    if (ecoplayPctInput === '' || Number.isNaN(pct) || pct < 0 || pct > 100) {
-      setEcoplayModalError('Ingresá un % entero entre 0 y 100.');
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE}/api/ecoplay`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pct }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setEcoplayModalError(data.error || 'Error');
-        return;
-      }
-      // Informar un % siempre implica que Ecoplay quedó "cargada" (es la
-      // fuente de verdad real), así que sincronizamos el badge acá también.
-      try {
-        const chargedRes = await fetch(`${API_BASE}/api/devices/charged`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ device: 'ecoplay', charged: true }),
-        });
-        const chargedData: DevicesResponse = await chargedRes.json();
-        if (chargedData.devices) setDevices(chargedData.devices);
-        // Mismo criterio de exclusión mutua que toggleCharged: si ecoplay
-        // estaba encendida, se apaga al marcarse como cargada.
-        const updated = chargedData.devices?.find((d) => d.key === 'ecoplay');
-        if (updated?.on) {
-          await clearOn('ecoplay');
-        }
-      } catch {
-        loadDevices();
-      }
-      setEcoplayModalVisible(false);
-    } catch {
-      setEcoplayModalError('No se pudo conectar con el servidor.');
-    }
-  }, [ecoplayPctInput, loadDevices, clearOn]);
 
   useEffect(() => {
     loadStatus();
@@ -534,63 +475,18 @@ export default function App() {
     </View>
   ) : null;
 
-  // Dispositivos: fuera de ecoplay ya no son clickeables ni marcan ON/OFF (a
-  // pedido del usuario) — solo queda el punto 🟢/🔴 de fits (entra o no en
-  // el excedente actual). Ecoplay es el único dispositivo con estado propio,
-  // así que junta acá ambos toggles (on/off real y cargada/descargada de su
-  // batería interna) en una sola fila en vez de vivir partido entre "Qué
-  // tienes encendido" y una sección "Estado de carga" aparte que antes solo
-  // terminaba mostrándolo a él (mirroring web dashboard).
-  const powerRow = (d: Device) => {
-    if (d.key !== 'ecoplay') {
-      return (
-        <View key={d.key} style={[styles.deviceBtn, styles.deviceBtnOff]}>
-          <View style={[styles.deviceNameRow, styles.deviceBtnNameCol]}>
-            {d.fits != null ? <Text>{d.fits ? '🟢 ' : '🔴 '}</Text> : null}
-            <DeviceIcon emoji={d.emoji} />
-            <Text style={styles.deviceBtnName}>{d.label} · {d.watts}W</Text>
-          </View>
-        </View>
-      );
-    }
-    return (
-      <View key={d.key} style={[styles.deviceBtn, d.on ? styles.deviceBtnOn : styles.deviceBtnOff]}>
-        <View style={styles.deviceBtnNameCol}>
-          <View style={styles.deviceNameRow}>
-            {d.fits != null ? <Text>{d.fits ? '🟢 ' : '🔴 '}</Text> : null}
-            <DeviceIcon emoji={d.emoji} />
-            <Text style={styles.deviceBtnName}>
-              {d.label} · {d.watts}W
-              {d.on && d.fits === false && d.deficit_w ? (
-                <Text style={styles.deficitText}> (-{d.deficit_w}W)</Text>
-              ) : null}
-            </Text>
-          </View>
-          {d.note ? (
-            <View style={styles.deviceBtnNoteRow}>
-              {/* El backend manda el note con un 🔋 embebido en el string
-                  (ej. "🔋 100%: 20:44 (Meta: 07:30)") — se saca y se reemplaza
-                  por el mismo BatteryIcon SVG del resto de la app. */}
-              {d.note.startsWith('🔋') ? <BatteryIcon state="charging" size={11} /> : null}
-              <Text style={styles.deviceBtnNote}>{d.note.replace(/^🔋\s*/, '')}</Text>
-            </View>
-          ) : null}
-        </View>
-        <View style={styles.stateGroup}>
-          <Pressable onPress={() => toggleDevice(d.key, !d.on)} hitSlop={8}>
-            <Text style={[styles.deviceState, { color: d.on ? COLORS.green : COLORS.faint }]}>
-              {d.on ? 'ON' : 'OFF'}
-            </Text>
-          </Pressable>
-          {/* Sin texto "cargada"/"descargada": el color del ícono
-              (verde/rojo) ya lo dice solo. */}
-          <Pressable onPress={() => toggleCharged(d.key, !d.charged)} hitSlop={8}>
-            <BatteryIcon state={d.charged ? 'charging' : 'discharging'} size={16} />
-          </Pressable>
-        </View>
+  // Dispositivos: no son clickeables ni marcan ON/OFF (a pedido del
+  // usuario) — solo queda el punto 🟢/🔴 de fits (entra o no en el
+  // excedente actual).
+  const powerRow = (d: Device) => (
+    <View key={d.key} style={[styles.deviceBtn, styles.deviceBtnOff]}>
+      <View style={[styles.deviceNameRow, styles.deviceBtnNameCol]}>
+        {d.fits != null ? <Text>{d.fits ? '🟢 ' : '🔴 '}</Text> : null}
+        <DeviceIcon emoji={d.emoji} />
+        <Text style={styles.deviceBtnName}>{d.label} · {d.watts}W</Text>
       </View>
-    );
-  };
+    </View>
+  );
   const dispositivosSection = devices.length > 0 ? (
     <View style={styles.devices}>
       <Text style={styles.sectionTitle}>Qué tienes encendido</Text>
@@ -686,36 +582,6 @@ export default function App() {
           )}
         </ScrollView>
 
-        <Modal
-          visible={ecoplayModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setEcoplayModalVisible(false)}
-        >
-          <Pressable style={styles.modalBackdrop} onPress={() => setEcoplayModalVisible(false)}>
-            <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
-              <Text style={styles.modalTitle}>Ecoplay: % de batería propia</Text>
-              <TextInput
-                style={styles.modalInput}
-                keyboardType="number-pad"
-                placeholder="0-100"
-                placeholderTextColor={COLORS.faint}
-                value={ecoplayPctInput}
-                onChangeText={setEcoplayPctInput}
-                maxLength={3}
-              />
-              {ecoplayModalError ? <Text style={styles.modalError}>{ecoplayModalError}</Text> : null}
-              <View style={styles.modalActions}>
-                <Pressable style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={submitEcoplayPct}>
-                  <Text style={styles.modalBtnPrimaryText}>Aceptar</Text>
-                </Pressable>
-                <Pressable style={styles.modalBtn} onPress={() => setEcoplayModalVisible(false)}>
-                  <Text style={styles.modalBtnText}>Cerrar</Text>
-                </Pressable>
-              </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -729,23 +595,6 @@ const styles = StyleSheet.create({
     padding: 16, width: '100%', maxWidth: 380,
   },
   dimText: { color: COLORS.dim, fontSize: 14 },
-
-  // Modal de % de Ecoplay — mismo estilo dark que .modal-box/.eta-box en
-  // web (bg #141b22, radios, colores de acento), sin inventar un lenguaje
-  // visual nuevo.
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  modalBox: { width: '100%', maxWidth: 320, backgroundColor: COLORS.card, borderColor: COLORS.border, borderWidth: 1, borderRadius: 14, padding: 20 },
-  modalTitle: { color: COLORS.text, fontSize: 16, fontWeight: '600', marginBottom: 12 },
-  modalInput: {
-    borderColor: COLORS.border, borderWidth: 1, borderRadius: 8, color: COLORS.text,
-    fontSize: 16, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8,
-  },
-  modalError: { color: COLORS.red, fontSize: 13, marginBottom: 8 },
-  modalActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  modalBtn: { flex: 1, borderRadius: 8, borderColor: COLORS.border, borderWidth: 1, paddingVertical: 10, alignItems: 'center' },
-  modalBtnPrimary: { backgroundColor: COLORS.green, borderColor: COLORS.green },
-  modalBtnText: { color: COLORS.text, fontSize: 15 },
-  modalBtnPrimaryText: { color: '#0b0f14', fontSize: 15, fontWeight: '600' },
 
   // Layout tablet/iPad — ver comentario junto a `isTablet` en el render.
   // alignItems:'flex-start' (no 'stretch') es lo que mantiene la altura de
@@ -843,11 +692,6 @@ const styles = StyleSheet.create({
   deviceBtnName: { fontSize: 14, color: '#cbd5e1' },
   deviceBtnNameCol: { flexShrink: 1 },
   deviceNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  deviceBtnNote: { fontSize: 12, color: COLORS.faint },
-  deviceBtnNoteRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  deficitText: { color: COLORS.red, fontWeight: '700', fontSize: 12 },
-  deviceState: { fontWeight: '700', fontSize: 12, letterSpacing: 0.5 },
-  stateGroup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   updatedRow: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
   liveDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },

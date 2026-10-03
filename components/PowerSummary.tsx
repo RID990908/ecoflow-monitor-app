@@ -3,7 +3,7 @@ import type { Device } from '../types';
 import { COLORS } from '../theme';
 
 // Grupos colapsados (Ventilador/Power bank) ya no resumen on/off (a pedido
-// del usuario, fuera de ecoplay no se marca encendido/apagado): resumen
+// del usuario no se marca encendido/apagado): resumen
 // mismo patrón visual pero basado en fits (entra o no en el excedente
 // actual), igual que el punto 🟢/🔴 de cada fila individual.
 export function PowerSummary({ devices }: { devices: Device[] }) {
