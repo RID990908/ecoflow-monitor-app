@@ -2,22 +2,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
-  Pressable,
   RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import * as Updates from 'expo-updates';
 
-import type { Device, DevicesResponse, FlowState } from './types';
+import type { FlowState } from './types';
 import { COLORS } from './theme';
-import { groupByType } from './utils/groupByType';
 import { TowerIcon } from './components/icons/TowerIcon';
 import { SourceEmoji } from './components/icons/SourceEmoji';
 import { UsbIcon } from './components/icons/UsbIcon';
@@ -27,9 +24,6 @@ import { PercentRing } from './components/icons/PercentRing';
 import { IconCircle } from './components/icons/IconCircle';
 import { LateralIcon } from './components/icons/LateralIcon';
 import { LateralHook } from './components/icons/LateralHook';
-import { DeviceIcon } from './components/icons/DeviceIcon';
-import { GroupHeaderIcon } from './components/GroupHeaderIcon';
-import { PowerSummary } from './components/PowerSummary';
 
 // react-native-svg no trae Animated.createAnimatedComponent aplicado a Path
 // por defecto; se arma acá porque no hay reanimated como dependencia (ver
@@ -43,12 +37,6 @@ const API_BASE = 'https://ecoflow-monitor-production.up.railway.app';
 // acá, cambiarlos ahí también para que no queden desincronizados.
 const RING_RED_MAX_PCT = 10;
 const RING_YELLOW_MAX_PCT = 20;
-
-// A partir de este ancho (iPad en cualquier orientación, tablets chicas
-// incluidas) se activa el layout de 3 columnas — ver `isTablet` en App().
-// useWindowDimensions() (a diferencia de Dimensions.get) es reactivo: se
-// actualiza solo ante rotación/resize, sin necesidad de listeners manuales.
-const TABLET_BREAKPOINT = 768;
 
 type StatusResponse = {
   ready: boolean;
@@ -89,22 +77,10 @@ type StatusResponse = {
 };
 
 export default function App() {
-  const { width } = useWindowDimensions();
-  const isTablet = width >= TABLET_BREAKPOINT;
-
   const [status, setStatus] = useState<StatusResponse | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [live, setLive] = useState<'ok' | 'stale'>('stale');
   const [updatedLabel, setUpdatedLabel] = useState('Conectando…');
-  // Grupos de dispositivos del mismo tipo (ej. "Ventilador 1/2/3", "Power
-  // bank 1/2") colapsados por default — solo esos, no la sección entera:
-  // ítems únicos (Nevera, Laptop) siempre se muestran en su fila
-  // completa. Key = `${sección}:${nombre del grupo}`, ausente = colapsado.
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-  const toggleGroup = useCallback((key: string) => {
-    setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
   const lastSuccessAt = useRef<number | null>(null);
 
   // Offset animado compartido para el "flujo" de las líneas conectoras
@@ -177,92 +153,9 @@ export default function App() {
     }
   }, []);
 
-  const loadDevices = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/devices`);
-      const data: DevicesResponse = await res.json();
-      setDevices(data.devices ?? []);
-    } catch {
-      // silencioso
-    }
-  }, []);
-
-  // "Encendido" y "cargada" son mutuamente excluyentes (a pedido del
-  // usuario): nunca deben coexistir para el mismo dispositivo. clearOn /
-  // clearCharged apagan el estado contrario contra el backend cuando
-  // toggleDevice/toggleCharged detectan el conflicto.
-  const clearOn = useCallback(async (key: string) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/devices`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device: key, on: false }),
-      });
-      const data: DevicesResponse = await res.json();
-      if (data.devices) setDevices(data.devices);
-    } catch {
-      loadDevices();
-    }
-  }, [loadDevices]);
-
-  const clearCharged = useCallback(async (key: string) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/devices/charged`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device: key, charged: false }),
-      });
-      const data: DevicesResponse = await res.json();
-      if (data.devices) setDevices(data.devices);
-    } catch {
-      loadDevices();
-    }
-  }, [loadDevices]);
-
-  const toggleDevice = useCallback(async (key: string, turningOn: boolean) => {
-    setDevices((prev) => prev.map((d) => (d.key === key ? { ...d, on: turningOn, charged: turningOn ? false : d.charged } : d)));
-    try {
-      const res = await fetch(`${API_BASE}/api/devices`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device: key, on: turningOn }),
-      });
-      const data: DevicesResponse = await res.json();
-      if (data.devices) setDevices(data.devices);
-      const updated = data.devices?.find((d) => d.key === key);
-      if (turningOn && updated?.charged) {
-        await clearCharged(key);
-      }
-    } catch {
-      loadDevices();
-    }
-  }, [loadDevices, clearCharged]);
-
-  // Mismo patrón que toggleDevice, apuntando a /api/devices/charged.
-  const toggleCharged = useCallback(async (key: string, settingCharged: boolean) => {
-    setDevices((prev) => prev.map((d) => (d.key === key ? { ...d, charged: settingCharged, on: settingCharged ? false : d.on } : d)));
-    try {
-      const res = await fetch(`${API_BASE}/api/devices/charged`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device: key, charged: settingCharged }),
-      });
-      const data: DevicesResponse = await res.json();
-      if (data.devices) setDevices(data.devices);
-      const updated = data.devices?.find((d) => d.key === key);
-      if (settingCharged && updated?.on) {
-        await clearOn(key);
-      }
-    } catch {
-      loadDevices();
-    }
-  }, [loadDevices, clearOn]);
-
   useEffect(() => {
     loadStatus();
-    loadDevices();
     const statusInterval = setInterval(loadStatus, 2000);
-    const devicesInterval = setInterval(loadDevices, 2000);
     const clockInterval = setInterval(() => {
       if (lastSuccessAt.current == null) {
         setUpdatedLabel('Conectando…');
@@ -275,16 +168,15 @@ export default function App() {
     }, 1000);
     return () => {
       clearInterval(statusInterval);
-      clearInterval(devicesInterval);
       clearInterval(clockInterval);
     };
-  }, [loadStatus, loadDevices]);
+  }, [loadStatus]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadStatus(), loadDevices()]);
+    await loadStatus();
     setRefreshing(false);
-  }, [loadStatus, loadDevices]);
+  }, [loadStatus]);
 
   const pct = status?.percent ?? 0;
   const ringColor = pct <= RING_RED_MAX_PCT ? COLORS.red : pct <= RING_YELLOW_MAX_PCT ? COLORS.yellow : COLORS.green;
@@ -317,11 +209,6 @@ export default function App() {
   const delta2W = delta2Discharging ? delta2OutW : delta2InW;
   const delta2State: FlowState = delta2Discharging ? 'discharging' : delta2Charging ? 'charging' : 'neutral';
 
-  // Cada sección se arma una sola vez como variable JSX y se reusa TAL CUAL
-  // (mismo árbol de componentes) tanto en el layout mobile (una sola
-  // columna, orden original sin tocar) como en el layout tablet (3
-  // columnas) — así no hay dos copias del diagrama central que se puedan
-  // desincronizar entre sí.
   const notReadyCard = !status || !status.ready ? (
     <View style={styles.card}>
       <Text style={styles.dimText}>{status?.error ?? 'Conectando…'}</Text>
@@ -475,49 +362,6 @@ export default function App() {
     </View>
   ) : null;
 
-  // Dispositivos: no son clickeables ni marcan ON/OFF (a pedido del
-  // usuario) — solo queda el punto 🟢/🔴 de fits (entra o no en el
-  // excedente actual).
-  const powerRow = (d: Device) => (
-    <View key={d.key} style={[styles.deviceBtn, styles.deviceBtnOff]}>
-      <View style={[styles.deviceNameRow, styles.deviceBtnNameCol]}>
-        {d.fits != null ? <Text>{d.fits ? '🟢 ' : '🔴 '}</Text> : null}
-        <DeviceIcon emoji={d.emoji} />
-        <Text style={styles.deviceBtnName}>{d.label} · {d.watts}W</Text>
-      </View>
-    </View>
-  );
-  const dispositivosSection = devices.length > 0 ? (
-    <View style={styles.devices}>
-      <Text style={styles.sectionTitle}>Qué tienes encendido</Text>
-      {groupByType(devices).map((g) =>
-        g.devices.length === 1 ? (
-          powerRow(g.devices[0])
-        ) : (
-          <View key={g.key} style={styles.deviceGroup}>
-            <Pressable
-              onPress={() => toggleGroup(`dispositivos:${g.key}`)}
-              style={[styles.sectionHeaderRow, styles.deviceBtnOff]}
-              hitSlop={8}
-            >
-              <View style={styles.groupTitleRow}>
-                <GroupHeaderIcon emoji={g.emoji} />
-                <Text style={styles.groupTitle} numberOfLines={1}>
-                  {g.key} ×{g.devices.length}
-                </Text>
-              </View>
-              <View style={styles.sectionHeaderRight}>
-                {!expandedGroups[`dispositivos:${g.key}`] ? <PowerSummary devices={g.devices} /> : null}
-                <Text style={styles.chevron}>{expandedGroups[`dispositivos:${g.key}`] ? '▾' : '▸'}</Text>
-              </View>
-            </Pressable>
-            {expandedGroups[`dispositivos:${g.key}`] ? g.devices.map(powerRow) : null}
-          </View>
-        )
-      )}
-    </View>
-  ) : null;
-
   const updatedRowSection = (
     <View style={styles.updatedRow}>
       <View style={[styles.liveDot, { backgroundColor: live === 'ok' ? COLORS.green : '#ef4444' }]} />
@@ -533,53 +377,10 @@ export default function App() {
           contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.dim} />}
         >
-          {isTablet ? (
-            // Layout tablet/iPad (>= TABLET_BREAKPOINT): 3 columnas
-            // independientes en un contenedor flexDirection:'row'. CLAVE:
-            // alignItems:'flex-start' en vez de 'stretch' (el default de
-            // 'stretch' NO aplica acá porque cada columna ya tiene su propio
-            // ancho fijo, pero 'flex-start' además evita que RN intente
-            // igualar alturas — cada View hija en un row solo crece a la
-            // altura de SU PROPIO contenido, nunca la de sus hermanas). Esto
-            // es justamente lo que CSS Grid no daba: ahí una fila de grid se
-            // estira a la altura del ítem más alto de esa fila entre TODAS
-            // las columnas, generando huecos enormes cuando un panel lateral
-            // corto compartía fila con el diagrama central, mucho más alto.
-            // Acá no hay filas compartidas entre columnas: cada columna es
-            // un único bloque vertical independiente, sin ninguna
-            // coordinación de alturas entre sí.
-            <View style={styles.tabletRow}>
-              <View style={styles.tabletColLeft}>
-                {dispositivosSection}
-              </View>
-              <View style={styles.tabletColCenter}>
-                {notReadyCard}
-                {centerFlow}
-                {updatedRowSection}
-              </View>
-              <View style={styles.tabletColRight}>
-                {etaBoxSection}
-              </View>
-            </View>
-          ) : (
-            // Layout mobile (< TABLET_BREAKPOINT): una sola columna, mismo
-            // orden de siempre (etaBoxSection separada de centerFlow pero
-            // renderizada justo después, mismo lugar visual). "Gestión de
-            // cargas" se sacó de acá: quedó redundante con el punto 🟢/🔴
-            // que ahora se pega directo a cada fila de dispositivosSection.
-            // updatedRowSection va pegado debajo del diagrama (mismo lugar
-            // que en tablet, ver tabletColCenter) en vez de al final de
-            // todo, después de la lista de dispositivos — ahí quedaba
-            // perdido y lejos de lo que describe (el estado del diagrama
-            // que tiene arriba, no de "Qué tienes encendido").
-            <>
-              {notReadyCard}
-              {centerFlow}
-              {updatedRowSection}
-              {etaBoxSection}
-              {dispositivosSection}
-            </>
-          )}
+          {notReadyCard}
+          {centerFlow}
+          {updatedRowSection}
+          {etaBoxSection}
         </ScrollView>
 
       </SafeAreaView>
@@ -595,21 +396,6 @@ const styles = StyleSheet.create({
     padding: 16, width: '100%', maxWidth: 380,
   },
   dimText: { color: COLORS.dim, fontSize: 14 },
-
-  // Layout tablet/iPad — ver comentario junto a `isTablet` en el render.
-  // alignItems:'flex-start' (no 'stretch') es lo que mantiene la altura de
-  // cada columna desacoplada de sus hermanas.
-  // tabletColLeft/Right usan flex:1 con maxWidth (no un width fijo): así se
-  // achican para entrar en el ancho real disponible (ej. iPad en portrait,
-  // o el frame todavía no terminó de actualizar tras rotar) en vez de
-  // desbordar la pantalla y cortar texto en los bordes — el ancho fijo de
-  // 260+380+260+gaps (988pt) no entraba en anchos por debajo de ~1000pt.
-  // tabletColCenter se mantiene fijo en 380 porque envuelve el diagrama de
-  // tamaño fijo (ring 240 + SVGs de 300 de ancho).
-  tabletRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', width: '100%', gap: 24 },
-  tabletColLeft: { flexDirection: 'column', flex: 1, minWidth: 140, maxWidth: 260 },
-  tabletColCenter: { flexDirection: 'column', alignItems: 'center', width: 380, flexShrink: 0 },
-  tabletColRight: { flexDirection: 'column', flex: 1, minWidth: 140, maxWidth: 260 },
 
   ioRow: { width: '100%', maxWidth: 380, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
   ioCol: { flex: 1 },
@@ -654,44 +440,6 @@ const styles = StyleSheet.create({
   etaGoal: {
     fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'], textAlign: 'center',
   },
-
-  sectionTitle: { fontSize: 13, color: COLORS.dim, marginBottom: 6 },
-  // deviceGroup envuelve un tipo repetido (Ventiladores, Power banks): su
-  // propio header colapsable, separado del título de sección. Sin
-  // marginBottom propio: el header (sectionHeaderRow) y cada fila expandida
-  // (deviceBtn) ya traen su propio marginBottom:8 — si el contenedor suma
-  // otro más, colapsado queda el doble de espacio (16px) que el gap normal
-  // entre filas sueltas (8px). El margen final lo pone siempre el último
-  // elemento visible del grupo, sea el header solo o la última fila.
-  deviceGroup: {},
-  // Fila del título de grupo: ícono (emoji, badge circular o batería suelta)
-  // + texto, alineados por caja de flex en vez de línea base de texto.
-  groupTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0 },
-  groupTitle: { fontSize: 13, color: '#cbd5e1', flexShrink: 1 },
-  // Header de grupo: mismo box (padding/borde/radio) que deviceBtn, para que
-  // "Ventilador ×3"/"Power bank ×2" se vean como una fila más de la lista en
-  // vez de texto suelto — se combina con deviceBtn/deviceBtnOn/deviceBtnOff
-  // en el JSX. flexWrap porque en tablet las columnas laterales se angostan
-  // a ~150px (tabletColCenter no cede, ver arriba) y título + mini-iconos +
-  // flecha no entran en una sola línea — con wrap el resumen baja a su
-  // propia línea en vez de solaparse/recortarse.
-  sectionHeaderRow: {
-    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center',
-    padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1, rowGap: 4, columnGap: 8,
-  },
-  sectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
-  chevron: { color: COLORS.faint, fontSize: 14, width: 12, textAlign: 'center' },
-
-  devices: { width: '100%', maxWidth: 380, marginTop: 14 },
-  deviceBtn: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1,
-  },
-  deviceBtnOn: { backgroundColor: '#1a2b1f', borderColor: '#4ade8055' },
-  deviceBtnOff: { backgroundColor: COLORS.card, borderColor: COLORS.border },
-  deviceBtnName: { fontSize: 14, color: '#cbd5e1' },
-  deviceBtnNameCol: { flexShrink: 1 },
-  deviceNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 
   updatedRow: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
   liveDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },

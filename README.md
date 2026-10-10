@@ -1,6 +1,6 @@
 # EcoFlow Monitor App
 
-A mobile/web dashboard that visualizes the live status of an EcoFlow power station: battery level, charge/discharge power flow, connected devices, and power source (AC/solar/USB).
+A mobile/web dashboard that visualizes the live status of an EcoFlow power station: battery level, charge/discharge power flow, and power source (AC/solar/USB).
 
 This is the companion app to [`ecoflow-monitor`](../ecoflow-monitor), a sibling Python project that runs a Telegram bot for the same EcoFlow device. Both projects read from the same EcoFlow data source; this repo focuses on the visual dashboard, the bot repo focuses on chat-based notifications and control.
 
@@ -10,7 +10,7 @@ This is the companion app to [`ecoflow-monitor`](../ecoflow-monitor), a sibling 
 
 - [Expo](https://expo.dev/) (SDK 57) / [React Native](https://reactnative.dev/)
 - [TypeScript](https://www.typescriptlang.org/) (strict mode)
-- [react-native-svg](https://github.com/software-mansion/react-native-svg) for the custom battery/device/power-flow icon set
+- [react-native-svg](https://github.com/software-mansion/react-native-svg) for the custom battery/power-flow icon set
 - [EAS](https://docs.expo.dev/eas/) for native builds and OTA updates
 - [Vercel](https://vercel.com/) for hosting the web export (live demo)
 
@@ -26,10 +26,8 @@ From the Expo CLI menu you can open the app on iOS, Android, or web (press `w`).
 ## Project structure
 
 - `App.tsx` — root component, composes the dashboard from the pieces below
-- `components/` — `ChargeSummary`, `PowerSummary`, `GroupHeaderIcon`, and other dashboard components
-- `components/icons/` — the SVG icon set (battery, fan, device, arrows, percent ring, etc.)
+- `components/icons/` — the SVG icon set (battery, arrows, percent ring, etc.)
 - `hooks/` — shared React hooks
-- `utils/` — small utilities (e.g. grouping devices by type)
 
 ## Build & deploy
 
