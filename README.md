@@ -8,7 +8,7 @@ This is the companion app to [`ecoflow-monitor`](../ecoflow-monitor), a sibling 
 
 ## Tech stack
 
-- [Expo](https://expo.dev/) (SDK 57) / [React Native](https://reactnative.dev/)
+- [Expo](https://expo.dev/) (SDK 58) / [React Native](https://reactnative.dev/)
 - [TypeScript](https://www.typescriptlang.org/) (strict mode)
 - [react-native-svg](https://github.com/software-mansion/react-native-svg) for the custom battery/power-flow icon set
 - [EAS](https://docs.expo.dev/eas/) for native builds and OTA updates
