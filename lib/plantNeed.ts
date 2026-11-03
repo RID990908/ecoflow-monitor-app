@@ -23,7 +23,9 @@ export type PlantNeedInput = {
 };
 
 export type PlantNeed = {
-  kind: 'ok' | 'later' | 'soon' | 'now';
+  // 'night': past NIGHT_START_HOUR the plant is never started, so there is
+  // no plant verdict, only how long the battery lasts.
+  kind: 'ok' | 'later' | 'soon' | 'now' | 'night';
   balanceW: number;
   // Projected battery % at NIGHT_START_HOUR (current % once that hour passed).
   projectedPct: number;
@@ -31,6 +33,8 @@ export type PlantNeed = {
   requiredPct: number;
   // Hours left until NIGHT_START_HOUR (0 once it passed).
   hoursToNight: number;
+  // Hours until the battery hits the reserve at the assumed night load (kind 'night').
+  hoursToFloor?: number;
   // Hours from now until the plant has to be started to still make it.
   startInHours?: number;
   // Hours the plant has to run to close the gap.
@@ -49,6 +53,11 @@ export function plantNeed({ percent, floorPct, pvW, outW, capacityWh, plantW, no
   const projectedPct = Math.min(100, Math.max(0, percent + ((balanceW * hoursToNight) / capacityWh) * 100));
   const requiredPct = Math.min(100, floorPct + ((NIGHT_LOAD_W * NIGHT_HOURS) / capacityWh) * 100);
   if (projectedPct >= requiredPct) return { kind: 'ok', balanceW, projectedPct, requiredPct, hoursToNight };
+
+  if (hoursToNight === 0) {
+    const hoursToFloor = (Math.max(0, percent - floorPct) / 100 * capacityWh) / NIGHT_LOAD_W;
+    return { kind: 'night', balanceW, projectedPct, requiredPct, hoursToNight, hoursToFloor };
+  }
 
   // With the plant on, the battery sees plant output + solar - house.
   const gapWh = ((requiredPct - projectedPct) / 100) * capacityWh;
@@ -90,6 +99,7 @@ export function plantTone(kind: PlantNeed['kind']): PlantTone {
 export function plantTitle(need: PlantNeed): string {
   const h = need.startInHours ?? 0;
   if (need.kind === 'ok') return 'No es necesaria';
+  if (need.kind === 'night') return 'Sin planta esta noche';
   if (need.kind === 'now') return 'Enciéndela ya';
   if (need.kind === 'soon') return `Enciéndela en ${formatHours(h)}`;
   return `Necesaria, enciéndela en ${formatHours(h)}`;
@@ -99,6 +109,7 @@ export function plantTitle(need: PlantNeed): string {
 export function plantNodeLabel(need: PlantNeed): string {
   const h = need.startInHours ?? 0;
   if (need.kind === 'ok') return 'No necesaria';
+  if (need.kind === 'night') return 'Pasadas las 21h';
   if (need.kind === 'now') return 'Encender ya';
   if (need.kind === 'soon') return `Encender en ${formatHoursShort(h)}`;
   return `En ${formatHoursShort(h)}`;

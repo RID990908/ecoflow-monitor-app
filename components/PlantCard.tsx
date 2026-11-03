@@ -57,6 +57,16 @@ export function PlantCard({
         <Text style={styles.strong}>{pctText(need.requiredPct)}</Text>.
       </>
     );
+  } else if (need.kind === 'night') {
+    title = plantTitle(need);
+    tone = PLANT_TONE_COLOR[plantTone(need.kind)];
+    reason = (
+      <>
+        Pasadas las {nightText} la planta no se enciende. Con <Text style={styles.strong}>{pctText(percent)}</Text> la
+        batería llega a la reserva en <Text style={styles.strong}>{formatHours(need.hoursToFloor ?? 0)}</Text> (≈{' '}
+        <Text style={styles.strong}>{clockIn(need.hoursToFloor ?? 0, now)}</Text>).
+      </>
+    );
   } else {
     title = plantTitle(need);
     tone = PLANT_TONE_COLOR[plantTone(need.kind)];

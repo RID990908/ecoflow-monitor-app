@@ -45,6 +45,11 @@ import {
 const TOP_GRID = 'M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75 L 150,122';
 const TOP_PLANT = 'M 150,8 L 150,122';
 const TOP_SOLAR = 'M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75 L 150,122';
+// Track-only variants: the shared trunk is drawn once so idle tracks never
+// paint over an active beam.
+const TOP_GRID_TRACK = 'M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75';
+const TOP_SOLAR_TRACK = 'M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75';
+const BOTTOM_USB_TRACK = 'M 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122';
 const BOTTOM_AC = 'M 150,8 L 150,55 Q 150,65 140,65 L 85,65 Q 75,65 75,75 L 75,122';
 const BOTTOM_USB = 'M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122';
 
@@ -52,7 +57,7 @@ const BOTTOM_USB = 'M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 
 // de un ancho de 390 (con 240 el nodo derecho se salía ~7px de la pantalla).
 const RING = 224;
 
-const STATUS_POLL_MS = 2000;
+const STATUS_POLL_MS = 1000;
 const FETCH_TIMEOUT_MS = 5000;
 // Data older than this (or a not-ready payload) is shown as stale.
 const STALE_AFTER_MS = 10000;
@@ -241,7 +246,11 @@ export default function App() {
     })();
   }, []);
 
+  const inFlight = useRef(false);
   const loadStatus = useCallback(async () => {
+    // At a 1 s cadence a slow response must not overlap the next request.
+    if (inFlight.current) return;
+    inFlight.current = true;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
@@ -256,6 +265,7 @@ export default function App() {
       // timeout, abort or network error: counts as a failed request
     } finally {
       clearTimeout(timeout);
+      inFlight.current = false;
     }
   }, []);
 
@@ -422,9 +432,12 @@ export default function App() {
                   <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
                 </View>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectorsTop}>
-                  <FlowPath d={TOP_GRID} color={COLORS.green} active={redActive} dashOffset={flowDashOffset} />
-                  <FlowPath d={TOP_PLANT} color={COLORS.green} active={plantActive} dashOffset={flowDashOffset} />
-                  <FlowPath d={TOP_SOLAR} color={COLORS.green} active={solarActive} dashOffset={flowDashOffset} />
+                  <FlowPath d={TOP_GRID_TRACK} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
+                  <FlowPath d={TOP_SOLAR_TRACK} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
+                  <FlowPath d={TOP_PLANT} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
+                  <FlowPath d={TOP_GRID} color={COLORS.green} active={redActive} dashOffset={flowDashOffset} layer="beam" />
+                  <FlowPath d={TOP_PLANT} color={COLORS.green} active={plantActive} dashOffset={flowDashOffset} layer="beam" />
+                  <FlowPath d={TOP_SOLAR} color={COLORS.green} active={solarActive} dashOffset={flowDashOffset} layer="beam" />
                   <Circle
                     cx={150}
                     cy={122}
@@ -492,8 +505,10 @@ export default function App() {
                   (and vice-versa). */}
               <View style={styles.flowBottomWrap}>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectors}>
-                  <FlowPath d={BOTTOM_AC} color={COLORS.red} active={acOutActive} dashOffset={flowDashOffset} />
-                  <FlowPath d={BOTTOM_USB} color={COLORS.red} active={usbActive} dashOffset={flowDashOffset} />
+                  <FlowPath d={BOTTOM_AC} color={COLORS.red} active={false} dashOffset={flowDashOffset} layer="track" />
+                  <FlowPath d={BOTTOM_USB_TRACK} color={COLORS.red} active={false} dashOffset={flowDashOffset} layer="track" />
+                  <FlowPath d={BOTTOM_AC} color={COLORS.red} active={acOutActive} dashOffset={flowDashOffset} layer="beam" />
+                  <FlowPath d={BOTTOM_USB} color={COLORS.red} active={usbActive} dashOffset={flowDashOffset} layer="beam" />
                   <Circle cx={150} cy={8} r={3.5} fill={acOutActive || usbActive ? COLORS.red : COLORS.track} />
                 </Svg>
                 <View style={styles.iconsRowBottom}>

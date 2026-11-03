@@ -35,7 +35,7 @@ export function LateralHook({
   const svgStyle = side === 'right' ? styles.lateralSvg : [styles.lateralSvg, styles.lateralSvgLeft];
   return (
     <Svg width={64} height={44} viewBox={viewBox} style={svgStyle}>
-      <FlowPath d={discharging ? back : out} color={color} active={active} dashOffset={dashOffset} dash="0.1,7" width={3} trackWidth={4} />
+      <FlowPath d={discharging ? back : out} color={color} active={active} dashOffset={dashOffset} dash="6,8" width={2.5} trackWidth={3} />
       <Circle cx={0} cy={0} r={3.6} fill={active ? color : COLORS.track} />
     </Svg>
   );

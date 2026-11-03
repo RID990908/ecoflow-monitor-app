@@ -19,6 +19,7 @@ export function FlowPath({
   dash = '6,10',
   width = 2.5,
   trackWidth = 2,
+  layer = 'both',
 }: {
   d: string;
   color: string;
@@ -27,11 +28,19 @@ export function FlowPath({
   dash?: string;
   width?: number;
   trackWidth?: number;
+  // Connectors that share a segment draw every track first ('track') and every
+  // beam after ('beam'); otherwise an idle sibling's track paints over the
+  // active one's color on the shared part.
+  layer?: 'track' | 'beam' | 'both';
 }) {
   return (
     <>
-      <Path d={d} stroke={COLORS.track} strokeWidth={trackWidth} strokeLinecap="round" fill="none" />
-      {active ? <Path d={d} stroke={color} strokeWidth={width + 5} strokeLinecap="round" fill="none" opacity={0.16} /> : null}
+      {layer !== 'beam' ? (
+        <Path d={d} stroke={COLORS.track} strokeWidth={trackWidth} strokeLinecap="round" fill="none" />
+      ) : null}
+      {layer === 'track' ? null : (
+        <>
+      {active ? <Path d={d} stroke={color} strokeWidth={width + 5} strokeLinecap="round" fill="none" opacity={0.3} /> : null}
       <AnimatedPath
         d={d}
         stroke={color}
@@ -42,6 +51,8 @@ export function FlowPath({
         fill="none"
         opacity={active ? 1 : 0}
       />
+        </>
+      )}
     </>
   );
 }
