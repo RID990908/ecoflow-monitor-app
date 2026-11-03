@@ -5,8 +5,12 @@
 export const BATTERY_CAPACITY_WH = 2048;
 // Output of the plant while it is running, in W.
 export const PLANT_OUTPUT_W = 1200;
-// SOC the plant is expected to bring the battery back to, in %.
-export const PLANT_TARGET_PCT = 80;
+// Hour of day (local, 24 h) by which the battery must be ready for the night.
+export const NIGHT_START_HOUR = 21;
+// Hours the night lasts (until the sun is back), used to size the reserve.
+export const NIGHT_HOURS = 10;
+// Assumed house load overnight, in W. Today's reading is too noisy to size it.
+export const NIGHT_LOAD_W = 150;
 
 export type PlantNeedInput = {
   percent: number;
@@ -15,27 +19,43 @@ export type PlantNeedInput = {
   outW: number;
   capacityWh: number;
   plantW: number;
-  targetPct: number;
+  nowMs: number;
 };
 
 export type PlantNeed = {
   kind: 'ok' | 'later' | 'soon' | 'now';
   balanceW: number;
-  hoursToFloor?: number;
+  // Projected battery % at NIGHT_START_HOUR (current % once that hour passed).
+  projectedPct: number;
+  // Battery % needed at NIGHT_START_HOUR to get through the night.
+  requiredPct: number;
+  // Hours left until NIGHT_START_HOUR (0 once it passed).
+  hoursToNight: number;
+  // Hours from now until the plant has to be started to still make it.
+  startInHours?: number;
+  // Hours the plant has to run to close the gap.
   runHours?: number;
 };
 
-export function plantNeed({ percent, floorPct, pvW, outW, capacityWh, plantW, targetPct }: PlantNeedInput): PlantNeed {
+// "Will we reach 21:00 with enough charge to get through the night?" The
+// projection keeps today's net power (sun minus house) constant until then:
+// optimistic in the afternoon, because the sun fades.
+export function plantNeed({ percent, floorPct, pvW, outW, capacityWh, plantW, nowMs }: PlantNeedInput): PlantNeed {
   const balanceW = pvW - outW;
-  if (balanceW >= 0) return { kind: 'ok', balanceW };
+  const night = new Date(nowMs);
+  night.setHours(NIGHT_START_HOUR, 0, 0, 0);
+  const hoursToNight = Math.max(0, (night.getTime() - nowMs) / 3600e3);
 
-  const deficit = -balanceW;
-  const usableWh = Math.max(0, ((percent - floorPct) / 100) * capacityWh);
-  const hoursToFloor = usableWh / deficit;
+  const projectedPct = Math.min(100, Math.max(0, percent + ((balanceW * hoursToNight) / capacityWh) * 100));
+  const requiredPct = Math.min(100, floorPct + ((NIGHT_LOAD_W * NIGHT_HOURS) / capacityWh) * 100);
+  if (projectedPct >= requiredPct) return { kind: 'ok', balanceW, projectedPct, requiredPct, hoursToNight };
+
   // With the plant on, the battery sees plant output + solar - house.
-  const runHours = (((targetPct - floorPct) / 100) * capacityWh) / Math.max(plantW + balanceW, 1);
-  const kind = hoursToFloor < 0.25 ? 'now' : hoursToFloor < 2 ? 'soon' : 'later';
-  return { kind, balanceW, hoursToFloor, runHours };
+  const gapWh = ((requiredPct - projectedPct) / 100) * capacityWh;
+  const runHours = gapWh / Math.max(plantW + balanceW, 1);
+  const startInHours = hoursToNight - runHours;
+  const kind = startInHours <= 0 ? 'now' : startInHours < 2 ? 'soon' : 'later';
+  return { kind, balanceW, projectedPct, requiredPct, hoursToNight, startInHours, runHours };
 }
 
 // `5 h 12 min` / `2 h` / `45 min`.
@@ -68,16 +88,16 @@ export function plantTone(kind: PlantNeed['kind']): PlantTone {
 
 // Verdict headline shown in the plant card.
 export function plantTitle(need: PlantNeed): string {
-  const h = need.hoursToFloor ?? 0;
+  const h = need.startInHours ?? 0;
   if (need.kind === 'ok') return 'No es necesaria';
   if (need.kind === 'now') return 'Enciéndela ya';
   if (need.kind === 'soon') return `Enciéndela en ${formatHours(h)}`;
-  return `Necesaria más tarde, en ${formatHours(h)}`;
+  return `Necesaria, enciéndela en ${formatHours(h)}`;
 }
 
 // Short verdict for the Planta node label.
 export function plantNodeLabel(need: PlantNeed): string {
-  const h = need.hoursToFloor ?? 0;
+  const h = need.startInHours ?? 0;
   if (need.kind === 'ok') return 'No necesaria';
   if (need.kind === 'now') return 'Encender ya';
   if (need.kind === 'soon') return `Encender en ${formatHoursShort(h)}`;

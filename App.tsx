@@ -30,11 +30,10 @@ import { IconCircle } from './components/icons/IconCircle';
 import { LateralIcon } from './components/icons/LateralIcon';
 import { LateralHook } from './components/icons/LateralHook';
 import { PlantCard } from './components/PlantCard';
-import type { AcOrigin } from './components/AcSourceSelector';
+import type { AcOrigin } from './lib/acOrigin';
 import {
   BATTERY_CAPACITY_WH,
   PLANT_OUTPUT_W,
-  PLANT_TARGET_PCT,
   plantNeed,
   plantNodeLabel,
   plantTone,
@@ -130,14 +129,25 @@ export default function App() {
     if (prevHasAc.current && !hasAc && acOrigin === 'grid') setGridOut(true);
     prevHasAc.current = hasAc;
   }, [hasAc, acOrigin]);
-  const onOriginChange = useCallback((next: AcOrigin) => {
-    setAcOrigin(next);
-    if (next === 'plant') setGridOut(true);
-  }, []);
-  const onGridBack = useCallback(() => {
-    setGridOut(false);
-    setAcOrigin('grid');
-  }, []);
+  // Tapping the Red / Planta nodes marks where the AC comes from; tapping the
+  // active one again clears it. While the grid is out, Red means "grid is back".
+  const onRedPress = useCallback(() => {
+    if (gridOut) {
+      setGridOut(false);
+      setAcOrigin('grid');
+    } else {
+      setAcOrigin((cur) => (cur === 'grid' ? 'unclassified' : 'grid'));
+    }
+  }, [gridOut]);
+  const onPlantPress = useCallback(() => {
+    if (gridOut || acOrigin === 'plant') {
+      setGridOut(false);
+      setAcOrigin('unclassified');
+    } else {
+      setAcOrigin('plant');
+      setGridOut(true);
+    }
+  }, [gridOut, acOrigin]);
   const solarActive = (status?.pv_w ?? 0) > 0;
   const acOutActive = (status?.ac_out_w ?? 0) > 0;
   const usbActive = (status?.usb_out_w ?? 0) > 0;
@@ -339,7 +349,7 @@ export default function App() {
     outW,
     capacityWh: BATTERY_CAPACITY_WH,
     plantW: PLANT_OUTPUT_W,
-    targetPct: PLANT_TARGET_PCT,
+    nowMs: now,
   });
   // With any AC input the plant is not needed; the verdict only applies on solar alone.
   const nodeNeed = hasAc ? { ...need, kind: 'ok' as const } : need;
@@ -395,6 +405,8 @@ export default function App() {
                           : 'sin registro'
                     }
                     dirColor={redActive && effectiveOrigin === 'unclassified' ? COLORS.yellow : undefined}
+                    onPress={hasAc ? onRedPress : undefined}
+                    selected={redActive && effectiveOrigin === 'grid'}
                     name="Red"
                   />
                   <IconCircle
@@ -403,6 +415,8 @@ export default function App() {
                     watts={`${plantActive ? status.ac_w ?? 0 : 0} W`}
                     dirLabel={plantActive ? 'en uso' : plantNodeLabel(nodeNeed)}
                     dirColor={plantActive ? undefined : PLANT_TONE_COLOR[plantTone(nodeNeed.kind)]}
+                    onPress={hasAc ? onPlantPress : undefined}
+                    selected={plantActive}
                     name="Planta"
                   />
                   <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
@@ -507,15 +521,10 @@ export default function App() {
             <View style={wide ? styles.plantWide : styles.plantNarrow}>
             <PlantCard
               percent={pct}
-              floorPct={floorPct}
-              pvW={status.pv_w ?? 0}
-              outW={outW}
+              need={need}
               hasAc={hasAc}
               lastAcShort={status.last_ac_short}
               origin={effectiveOrigin}
-              onOriginChange={onOriginChange}
-              gridOut={gridOut}
-              onGridBack={onGridBack}
               now={now}
             />
             </View>
