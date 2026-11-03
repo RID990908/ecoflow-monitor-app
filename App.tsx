@@ -29,7 +29,6 @@ import { PercentRing } from './components/icons/PercentRing';
 import { IconCircle } from './components/icons/IconCircle';
 import { LateralIcon } from './components/icons/LateralIcon';
 import { LateralHook } from './components/icons/LateralHook';
-import { PlantCard } from './components/PlantCard';
 import type { AcOrigin } from './lib/acOrigin';
 import {
   BATTERY_CAPACITY_WH,
@@ -532,18 +531,6 @@ export default function App() {
           {notReadyCard}
           <View style={[styles.body, wide && styles.bodyWide]}>
           <View style={[styles.diagram, wide && styles.diagramWide, stale && styles.diagramStale]}>{centerFlow}</View>
-          {status && status.ready && !stale ? (
-            <View style={wide ? styles.plantWide : styles.plantNarrow}>
-            <PlantCard
-              percent={pct}
-              need={need}
-              hasAc={hasAc}
-              lastAcShort={status.last_ac_short}
-              origin={effectiveOrigin}
-              now={now}
-            />
-            </View>
-          ) : null}
           </View>
         </ScrollView>
 
@@ -598,8 +585,6 @@ const styles = StyleSheet.create({
   body: { width: '100%', alignItems: 'center' },
   bodyWide: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 48 },
   diagramWide: { width: 420 },
-  plantWide: { width: 340, marginTop: 70 },
-  plantNarrow: { width: '100%', alignItems: 'center' },
   diagram: { width: '100%', alignItems: 'center' },
   diagramStale: { opacity: 0.45 },
 });

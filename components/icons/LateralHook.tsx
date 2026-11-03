@@ -10,6 +10,9 @@ import { FlowPath } from '../FlowPath';
 // .flow-connectors.lateral.
 const REACH = 44; // tramo horizontal desde el borde del anillo
 const DROP = 34; // tramo vertical hasta el nodo (queda tapado por su círculo)
+const PAD = 8;
+const W = 64 + PAD * 2;
+const H = 44 + PAD * 2;
 
 export function LateralHook({
   side,
@@ -31,10 +34,13 @@ export function LateralHook({
   const back = `M ${sx * (REACH + 8)},${DROP} L ${sx * (REACH + 8)},8 Q ${sx * (REACH + 8)},0 ${sx * REACH},0 L 0,0`;
   const active = charging || discharging;
   const color = discharging ? COLORS.red : COLORS.green;
-  const viewBox = side === 'right' ? '0 0 64 44' : '-64 0 64 44';
+  // PAD of empty room on every side: native SVG clips anything outside its box,
+  // and the horizontal run sits at y=0, so without it the top half of the
+  // stroke and halo (and half of the ring-edge dot) were cut off.
+  const viewBox = side === 'right' ? `${-PAD} ${-PAD} ${W} ${H}` : `${-64 - PAD} ${-PAD} ${W} ${H}`;
   const svgStyle = side === 'right' ? styles.lateralSvg : [styles.lateralSvg, styles.lateralSvgLeft];
   return (
-    <Svg width={64} height={44} viewBox={viewBox} style={svgStyle}>
+    <Svg width={W} height={H} viewBox={viewBox} style={svgStyle}>
       <FlowPath d={discharging ? back : out} color={color} active={active} dashOffset={dashOffset} dash="6,8" width={2.5} trackWidth={3} />
       <Circle cx={0} cy={0} r={3.6} fill={active ? color : COLORS.track} />
     </Svg>
@@ -42,10 +48,10 @@ export function LateralHook({
 }
 
 const styles = StyleSheet.create({
-  lateralSvg: { overflow: 'visible' },
+  lateralSvg: { overflow: 'visible', marginLeft: -PAD, marginTop: -PAD },
   // Con viewBox "-64 0 64 44" el contenido (x entre -60 y 0) queda pegado
   // al borde DERECHO de la caja renderizada del Svg — sin mover la caja,
   // el gancho se vería 64px más a la derecha de lo que corresponde. Se
   // corre la caja misma 64px a la izquierda para compensar.
-  lateralSvgLeft: { marginLeft: -64 },
+  lateralSvgLeft: { marginLeft: -64 - PAD },
 });
