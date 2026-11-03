@@ -1,22 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  AppState,
   Easing,
   RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import * as Updates from 'expo-updates';
 
 import type { FlowState } from './types';
-import { COLORS } from './theme';
-import { TowerIcon } from './components/icons/TowerIcon';
-import { SourceEmoji } from './components/icons/SourceEmoji';
+import { COLORS, PLANT_TONE_COLOR } from './theme';
+import { FlowPath } from './components/FlowPath';
+import { LiveDot } from './components/LiveDot';
+import { StatusBanner } from './components/StatusBanner';
+import { GridTowerIcon } from './components/icons/GridTowerIcon';
+import { GeneratorIcon } from './components/icons/GeneratorIcon';
 import { UsbIcon } from './components/icons/UsbIcon';
 import { ArrowDownIcon } from './components/icons/ArrowDownIcon';
 import { ArrowUpIcon } from './components/icons/ArrowUpIcon';
@@ -24,11 +29,34 @@ import { PercentRing } from './components/icons/PercentRing';
 import { IconCircle } from './components/icons/IconCircle';
 import { LateralIcon } from './components/icons/LateralIcon';
 import { LateralHook } from './components/icons/LateralHook';
+import { PlantCard } from './components/PlantCard';
+import type { AcOrigin } from './components/AcSourceSelector';
+import {
+  BATTERY_CAPACITY_WH,
+  PLANT_OUTPUT_W,
+  PLANT_TARGET_PCT,
+  plantNeed,
+  plantNodeLabel,
+  plantTone,
+} from './lib/plantNeed';
 
-// react-native-svg no trae Animated.createAnimatedComponent aplicado a Path
-// por defecto; se arma acá porque no hay reanimated como dependencia (ver
-// package.json) — se anima strokeDashoffset con la Animated API nativa de RN.
-const AnimatedPath = Animated.createAnimatedComponent(Path);
+// Paths de los colectores (viewBox 0 0 300 130). Los de arriba van nodo -> hub
+// (entrada); los de abajo, hub -> nodo (salida), para que el dash viaje en el
+// sentido real del flujo. KEEP IN SYNC con ecoflow_telegram_monitor.py.
+const TOP_GRID = 'M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75 L 150,122';
+const TOP_PLANT = 'M 150,8 L 150,122';
+const TOP_SOLAR = 'M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75 L 150,122';
+const BOTTOM_AC = 'M 150,8 L 150,55 Q 150,65 140,65 L 85,65 Q 75,65 75,75 L 75,122';
+const BOTTOM_USB = 'M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122';
+
+// Diámetro del anillo principal: 224 deja espacio a los nodos laterales dentro
+// de un ancho de 390 (con 240 el nodo derecho se salía ~7px de la pantalla).
+const RING = 224;
+
+const STATUS_POLL_MS = 2000;
+const FETCH_TIMEOUT_MS = 5000;
+// Data older than this (or a not-ready payload) is shown as stale.
+const STALE_AFTER_MS = 10000;
 
 const API_BASE = 'https://ecoflow-monitor-production.up.railway.app';
 
@@ -59,13 +87,10 @@ type StatusResponse = {
   eta_ok?: boolean | null;
   threshold_text?: string | null;
   threshold_short?: string | null;
+  threshold_pct?: number | null;
   last_ac_text?: string | null;
   last_ac_short?: string | null;
   remain_duration?: string | null;
-  goal_label?: string | null;
-  goal_floor?: number | null;
-  goal_projected?: number | null;
-  goal_met?: boolean | null;
   ports?: { name: string; watts: number }[];
   updated_at?: string;
   ac_out_w: number;
@@ -79,112 +104,40 @@ type StatusResponse = {
 export default function App() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [live, setLive] = useState<'ok' | 'stale'>('stale');
-  const [updatedLabel, setUpdatedLabel] = useState('Conectando…');
-  const lastSuccessAt = useRef<number | null>(null);
+  const [lastSuccessAt, setLastSuccessAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  // Where the AC input comes from. In-memory only; persisting it across
+  // launches is a follow-up.
+  const [acOrigin, setAcOrigin] = useState<AcOrigin>('unclassified');
+  // Street power is out: once the plant was chosen as the AC source, or AC
+  // that was classified as grid dropped, "Red (calle)" is no longer offered
+  // and any AC that shows up is assumed to come from the plant until the user
+  // says the grid is back. In-memory like acOrigin (persistence is a follow-up).
+  const [gridOut, setGridOut] = useState(false);
 
-  // Offset animado compartido para el "flujo" de las líneas conectoras
-  // (dash que viaja por el path) — un solo loop, reusado por todos los
-  // overlays; cada uno se prende/apaga por separado según su wattage.
-  // useNativeDriver:false porque strokeDashoffset no es soportado por el
-  // driver nativo de RN.
-  const flowAnim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(flowAnim, {
-        toValue: 1,
-        duration: 900,
-        easing: Easing.linear,
-        useNativeDriver: false,
-      })
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [flowAnim]);
-  const flowDashOffset = flowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -16] });
-
-  // Loop separado para los hooks laterales (Delta 2 / Batería Extra): dash
-  // más chico y más rápido que el flujo principal, igual que
-  // @keyframes flow-dash-lateral (0.96s, offset -14) en el dashboard web.
-  const flowAnimLateral = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(flowAnimLateral, {
-        toValue: 1,
-        duration: 960,
-        easing: Easing.linear,
-        useNativeDriver: false,
-      })
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [flowAnimLateral]);
-  const flowDashOffsetLateral = flowAnimLateral.interpolate({ inputRange: [0, 1], outputRange: [0, -14] });
-
-  // Por default expo-updates solo baja el update nuevo en segundo plano y lo
-  // aplica en el SIGUIENTE arranque en frío (no en el actual) — así que un
-  // cambio recién publicado no se ve hasta cerrar y abrir la app dos veces.
-  // Acá se chequea y, si hay uno disponible, se baja y se recarga sola en
-  // caliente para verlo ya en el primer reinicio.
-  useEffect(() => {
-    if (__DEV__ || !Updates.isEnabled) return;
-    (async () => {
-      try {
-        const check = await Updates.checkForUpdateAsync();
-        if (check.isAvailable) {
-          await Updates.fetchUpdateAsync();
-          await Updates.reloadAsync();
-        }
-      } catch {
-        // sin conexión o falló el chequeo: sigue con el bundle que ya tiene
-      }
-    })();
-  }, []);
-
-  const loadStatus = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/status`);
-      const data: StatusResponse = await res.json();
-      setStatus(data);
-      setLive(data.ready ? 'ok' : 'stale');
-      if (data.ready) lastSuccessAt.current = Date.now();
-    } catch {
-      setLive('stale');
-    }
-  }, []);
-
-  useEffect(() => {
-    loadStatus();
-    const statusInterval = setInterval(loadStatus, 2000);
-    const clockInterval = setInterval(() => {
-      if (lastSuccessAt.current == null) {
-        setUpdatedLabel('Conectando…');
-        return;
-      }
-      const secs = Math.round((Date.now() - lastSuccessAt.current) / 1000);
-      if (secs < 3) setUpdatedLabel('Actualizado ahora');
-      else if (secs < 60) setUpdatedLabel(`Actualizado hace ${secs}s`);
-      else setUpdatedLabel(`Desactualizado hace ${Math.round(secs / 60)}m`);
-    }, 1000);
-    return () => {
-      clearInterval(statusInterval);
-      clearInterval(clockInterval);
-    };
-  }, [loadStatus]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadStatus();
-    setRefreshing(false);
-  }, [loadStatus]);
-
-  const pct = status?.percent ?? 0;
-  const ringColor = pct <= RING_RED_MAX_PCT ? COLORS.red : pct <= RING_YELLOW_MAX_PCT ? COLORS.yellow : COLORS.green;
-  const acFlow: FlowState = status?.has_ac ? 'charging' : 'neutral';
-  const solarFlow: FlowState = (status?.pv_w ?? 0) > 0 ? 'charging' : 'neutral';
-
+  // Derived flow flags (computed before the effects below so hooks stay
+  // unconditional and in a stable order).
   // Wattage actual de cada nodo -> decide si su línea conectora se anima.
-  const acTopActive = (status?.ac_w ?? 0) > 0;
+  // AC arrival is detected from has_ac (never from the user's selection); the
+  // origin only decides which node (Red or Planta) shows it.
+  const hasAc = !!status?.has_ac;
+  const effectiveOrigin: AcOrigin = gridOut && hasAc ? 'plant' : acOrigin;
+  const redActive = hasAc && effectiveOrigin !== 'plant';
+  const plantActive = hasAc && effectiveOrigin === 'plant';
+
+  const prevHasAc = useRef(hasAc);
+  useEffect(() => {
+    if (prevHasAc.current && !hasAc && acOrigin === 'grid') setGridOut(true);
+    prevHasAc.current = hasAc;
+  }, [hasAc, acOrigin]);
+  const onOriginChange = useCallback((next: AcOrigin) => {
+    setAcOrigin(next);
+    if (next === 'plant') setGridOut(true);
+  }, []);
+  const onGridBack = useCallback(() => {
+    setGridOut(false);
+    setAcOrigin('grid');
+  }, []);
   const solarActive = (status?.pv_w ?? 0) > 0;
   const acOutActive = (status?.ac_out_w ?? 0) > 0;
   const usbActive = (status?.usb_out_w ?? 0) > 0;
@@ -209,15 +162,191 @@ export default function App() {
   const delta2W = delta2Discharging ? delta2OutW : delta2InW;
   const delta2State: FlowState = delta2Discharging ? 'discharging' : delta2Charging ? 'charging' : 'neutral';
 
-  const notReadyCard = !status || !status.ready ? (
+  const mainFlowActive = redActive || plantActive || solarActive || acOutActive || usbActive;
+  const lateralFlowActive = delta2Charging || delta2Discharging || lateralCharging || lateralDischarging;
+
+  // Offset animado compartido para el "flujo" de las líneas conectoras
+  // (dash que viaja por el path) — un solo loop, reusado por todos los
+  // overlays; cada uno se prende/apaga por separado según su wattage.
+  // useNativeDriver:false porque strokeDashoffset no es soportado por el
+  // driver nativo de RN. El loop corre solo mientras algún nodo está activo.
+  const flowAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!mainFlowActive) return;
+    const loop = Animated.loop(
+      Animated.timing(flowAnim, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      })
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      flowAnim.setValue(0);
+    };
+  }, [flowAnim, mainFlowActive]);
+  const flowDashOffset = flowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -16] });
+
+  // Loop separado para los hooks laterales (Delta 2 / Batería Extra): dash
+  // más chico y más rápido que el flujo principal, igual que
+  // @keyframes flow-dash-lateral (0.96s, offset -14) en el dashboard web.
+  const flowAnimLateral = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!lateralFlowActive) return;
+    const loop = Animated.loop(
+      Animated.timing(flowAnimLateral, {
+        toValue: 1,
+        duration: 960,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      })
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      flowAnimLateral.setValue(0);
+    };
+  }, [flowAnimLateral, lateralFlowActive]);
+  const flowDashOffsetLateral = flowAnimLateral.interpolate({ inputRange: [0, 1], outputRange: [0, -14] });
+
+  // Por default expo-updates solo baja el update nuevo en segundo plano y lo
+  // aplica en el SIGUIENTE arranque en frío (no en el actual) — así que un
+  // cambio recién publicado no se ve hasta cerrar y abrir la app dos veces.
+  // Acá se chequea y, si hay uno disponible, se baja y se recarga sola en
+  // caliente para verlo ya en el primer reinicio.
+  useEffect(() => {
+    if (__DEV__ || !Updates.isEnabled) return;
+    (async () => {
+      try {
+        const check = await Updates.checkForUpdateAsync();
+        if (check.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch {
+        // sin conexión o falló el chequeo: sigue con el bundle que ya tiene
+      }
+    })();
+  }, []);
+
+  const loadStatus = useCallback(async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${API_BASE}/api/status`, { signal: controller.signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: StatusResponse = await res.json();
+      setStatus(data);
+      const t = Date.now();
+      setLastSuccessAt(t);
+      setNow(t);
+    } catch {
+      // timeout, abort or network error: counts as a failed request
+    } finally {
+      clearTimeout(timeout);
+    }
+  }, []);
+
+  // Poll only while the app is in the foreground. On resume, refresh right
+  // away and restart both intervals (react-native-web maps AppState to page
+  // visibility).
+  useEffect(() => {
+    let statusInterval: ReturnType<typeof setInterval> | null = null;
+    let clockInterval: ReturnType<typeof setInterval> | null = null;
+
+    const stop = () => {
+      if (statusInterval) clearInterval(statusInterval);
+      if (clockInterval) clearInterval(clockInterval);
+      statusInterval = null;
+      clockInterval = null;
+    };
+    const start = () => {
+      stop();
+      setNow(Date.now());
+      loadStatus();
+      statusInterval = setInterval(loadStatus, STATUS_POLL_MS);
+      clockInterval = setInterval(() => setNow(Date.now()), 1000);
+    };
+
+    if (AppState.currentState === 'active') start();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') start();
+      else stop();
+    });
+    return () => {
+      sub.remove();
+      stop();
+    };
+  }, [loadStatus]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadStatus();
+    setRefreshing(false);
+  }, [loadStatus]);
+
+  const pct = status?.percent ?? 0;
+  const ringColor = pct <= RING_RED_MAX_PCT ? COLORS.red : pct <= RING_YELLOW_MAX_PCT ? COLORS.yellow : COLORS.green;
+  const solarFlow: FlowState = (status?.pv_w ?? 0) > 0 ? 'charging' : 'neutral';
+
+  // Single source of truth for staleness: no success yet, last success too
+  // old, or the backend reports it is not ready.
+  const stale = lastSuccessAt == null || now - lastSuccessAt > STALE_AFTER_MS || !status?.ready;
+  const minutesAgo = lastSuccessAt == null ? null : Math.max(1, Math.floor((now - lastSuccessAt) / 60000));
+
+  // Only the backend's own error message gets a card; plain "connecting" is
+  // already covered by the StatusBanner.
+  const notReadyCard = status?.error && !status.ready ? (
     <View style={styles.card}>
-      <Text style={styles.dimText}>{status?.error ?? 'Conectando…'}</Text>
+      <Text style={styles.dimText}>{status.error}</Text>
     </View>
   ) : null;
 
+  // Wide web screens: diagram and plant card side by side.
+  const { width: winW } = useWindowDimensions();
+  const wide = winW >= 900;
+
+  const inW = status?.in_w ?? 0;
+  const outW = status?.out_w ?? 0;
+  const stateWord = inW > outW ? 'Cargando' : inW < outW ? 'Descargando' : 'Usando';
+  const stateColor =
+    stateWord === 'Usando'
+      ? COLORS.dim
+      : status?.eta_text
+        ? status.eta_ok
+          ? COLORS.green
+          : COLORS.red
+        : stateWord === 'Cargando'
+          ? COLORS.green
+          : COLORS.red;
+
+  // Full battery: the backend reports no remaining time ("—"), so say so.
+  const remainEmpty = !status?.remain_duration || status.remain_duration === '—';
+  const batteryFull = pct >= 99 && remainEmpty;
+  const ringLine = status?.eta_text
+    ? status.eta_text
+    : stateWord === 'Usando' && hasAc
+      ? 'Usando la CA'
+      : stateWord;
+
+  const floorPct = status?.threshold_pct ?? 20;
+  const need = plantNeed({
+    percent: pct,
+    floorPct,
+    pvW: status?.pv_w ?? 0,
+    outW,
+    capacityWh: BATTERY_CAPACITY_WH,
+    plantW: PLANT_OUTPUT_W,
+    targetPct: PLANT_TARGET_PCT,
+  });
+  // With any AC input the plant is not needed; the verdict only applies on solar alone.
+  const nodeNeed = hasAc ? { ...need, kind: 'ok' as const } : need;
+
   const centerFlow = status && status.ready ? (
     <>
-              {/* io-row: entrada / verbo+emoji / salida */}
+              {/* io-row: entrada / salida */}
               <View style={styles.ioRow}>
                 <View style={styles.ioCol}>
                   <View style={styles.ioLabelRow}>
@@ -227,12 +356,6 @@ export default function App() {
                     </Text>
                   </View>
                   <Text style={styles.ioValue}>{status.in_w ?? '--'} W</Text>
-                </View>
-                <View style={styles.ioCenter}>
-                  <Text style={styles.verb}>{status.source_verb}</Text>
-                  <View style={[styles.emojiWrap, styles.sourceEmojiRow]}>
-                    <SourceEmoji value={status.source_emoji} />
-                  </View>
                 </View>
                 <View style={[styles.ioCol, { alignItems: 'flex-end' }]}>
                   <View style={styles.ioLabelRow}>
@@ -245,42 +368,55 @@ export default function App() {
                 </View>
               </View>
 
-              {/* GEOMETRY SPEC (top, mirrored, manifold/elbow style):
-                  sdd/power-flow-bottom-nodes/design §4 — viewBox 0 0 300 130,
-                  hub (150,122) at the ring's top edge, nodes x=75/225 y=8
-                  (bottom-center of each top node). AC and Solar are the two
-                  remaining nodes after the middle "Extra" node was removed
-                  (consolidated into the ring's right lateral hook below) —
-                  with only 2 icon-items left, iconsRowTop's space-around
-                  naturally centers them at x=75/225 (25%/75% of 300px),
-                  which is why the connector paths below anchor there instead
-                  of the old 50/250. Each side node drops straight down to a
-                  shared horizontal bus at y=65 (rounded 10px corners), then
-                  a single shared vertical trunk continues from the bus
-                  center (150,65) down to the hub. KEEP IN SYNC WITH
-                  ecoflow_telegram_monitor.py .flow-connectors.top
-                  (and vice-versa). */}
+              {/* GEOMETRY SPEC (top, three nodes into the hub): viewBox
+                  0 0 300 130, hub (150,122) at the ring's top edge, nodes
+                  Red/Planta/Solar at x=50/150/250 y=8 (with 3 icon-items
+                  space-around centers them at 1/6, 3/6, 5/6 of 300px). Red
+                  and Solar drop to a shared bus at y=65 (rounded 10px
+                  corners) and join the trunk at (150,65); Planta goes
+                  straight down. KEEP IN SYNC WITH
+                  ecoflow_telegram_monitor.py .flow-connectors.top. */}
               <View style={styles.flowTopWrap}>
                 <View style={styles.iconsRowTop}>
-                  {/* Reusa el slot de dirLabel (antes quedaba en blanco
-                      cuando has_ac es false — a diferencia de la web, que
-                      sí imprime "No" ahí) para mostrar "hace Xh"/"sin
-                      registro" sin agregar una fila nueva ni dejar espacio
-                      vacío. */}
+                  {/* The dirLabel slot shows "hace Xh"/"sin registro" while
+                      there is no AC, and the unclassified hint while the
+                      user has not picked an origin. */}
                   <IconCircle
-                    icon={<TowerIcon size={32} />}
-                    state={acFlow}
-                    watts={`${status.ac_w ?? 0} W`}
-                    dirLabel={status.has_ac ? 'Sí' : status.last_ac_short || 'sin registro'}
-                    name="CA"
+                    icon={<GridTowerIcon />}
+                    state={redActive ? 'charging' : 'neutral'}
+                    watts={`${redActive ? status.ac_w ?? 0 : 0} W`}
+                    dirLabel={
+                      redActive
+                        ? effectiveOrigin === 'unclassified'
+                          ? 'sin clasificar'
+                          : undefined
+                        : status.last_ac_short
+                          ? status.last_ac_short // backend text already reads "hace 19h 56m"
+                          : 'sin registro'
+                    }
+                    dirColor={redActive && effectiveOrigin === 'unclassified' ? COLORS.yellow : undefined}
+                    name="Red"
+                  />
+                  <IconCircle
+                    icon={<GeneratorIcon />}
+                    state={plantActive ? 'charging' : 'neutral'}
+                    watts={`${plantActive ? status.ac_w ?? 0 : 0} W`}
+                    dirLabel={plantActive ? 'en uso' : plantNodeLabel(nodeNeed)}
+                    dirColor={plantActive ? undefined : PLANT_TONE_COLOR[plantTone(nodeNeed.kind)]}
+                    name="Planta"
                   />
                   <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
                 </View>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectorsTop}>
-                  <Path d="M 75,8 L 75,55 Q 75,65 85,65 L 140,65 Q 150,65 150,75 L 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <Path d="M 225,8 L 225,55 Q 225,65 215,65 L 160,65 Q 150,65 150,75 L 150,122" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 75,8 L 75,55 Q 75,65 85,65 L 140,65 Q 150,65 150,75 L 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acTopActive ? 1 : 0} />
-                  <AnimatedPath d="M 225,8 L 225,55 Q 225,65 215,65 L 160,65 Q 150,65 150,75 L 150,122" stroke={COLORS.green} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={solarActive ? 1 : 0} />
+                  <FlowPath d={TOP_GRID} color={COLORS.green} active={redActive} dashOffset={flowDashOffset} />
+                  <FlowPath d={TOP_PLANT} color={COLORS.green} active={plantActive} dashOffset={flowDashOffset} />
+                  <FlowPath d={TOP_SOLAR} color={COLORS.green} active={solarActive} dashOffset={flowDashOffset} />
+                  <Circle
+                    cx={150}
+                    cy={122}
+                    r={3.5}
+                    fill={redActive || plantActive || solarActive ? COLORS.green : COLORS.track}
+                  />
                 </Svg>
               </View>
 
@@ -293,16 +429,24 @@ export default function App() {
                   RN), así que estos overlays absolutos se anclan a su caja
                   sin afectar el centrado del anillo. */}
               <View style={styles.ringWrap}>
+                {/* Resplandor suave detrás del anillo, del color de su estado. */}
+                <Svg width={RING * 1.7} height={RING * 1.7} style={styles.ringGlow} pointerEvents="none">
+                  <Defs>
+                    <RadialGradient id="ringGlow" cx="50%" cy="50%" r="50%">
+                      <Stop offset="0.45" stopColor={ringColor} stopOpacity={0.14} />
+                      <Stop offset="1" stopColor={ringColor} stopOpacity={0} />
+                    </RadialGradient>
+                  </Defs>
+                  <Circle cx="50%" cy="50%" r="50%" fill="url(#ringGlow)" />
+                </Svg>
                 <PercentRing pct={pct} color={ringColor} />
                 <View style={styles.ringInner}>
+                  <LiveDot live={!stale} />
                   <Text style={styles.pct}>{status.percent != null ? status.percent.toFixed(1) : '--'}%</Text>
-                  <Text style={styles.pctSubLabel}>Tiempo restante</Text>
-                  <Text style={styles.pctSubDur}>{status.remain_duration || '--'}</Text>
-                  {status.eta_text ? (
-                    <Text style={[styles.pctEta, { color: status.eta_ok ? COLORS.green : COLORS.red }]}>
-                      {status.eta_text}
-                    </Text>
-                  ) : null}
+                  <Text style={styles.pctSubLabel}>{batteryFull ? 'Batería llena' : 'Tiempo restante'}</Text>
+                  {batteryFull ? null : <Text style={styles.pctSubDur}>{status.remain_duration || '--'}</Text>}
+                  {/* eta_text already says the direction ("Llena a las…", "Dura hasta las…"); the state word only fills in when there is none. */}
+                  <Text style={[styles.pctEta, { color: stateColor }]}>{ringLine}</Text>
                   {status.threshold_short ? <Text style={styles.pctThreshold}>{status.threshold_short}</Text> : null}
                 </View>
                 <View style={styles.lateralOverlayLeft}>
@@ -334,10 +478,9 @@ export default function App() {
                   (and vice-versa). */}
               <View style={styles.flowBottomWrap}>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectors}>
-                  <Path d="M 150,8 L 150,55 Q 150,65 140,65 L 85,65 Q 75,65 75,75 L 75,122" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <Path d="M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122" stroke="#232c36" strokeWidth={2} fill="none" />
-                  <AnimatedPath d="M 150,8 L 150,55 Q 150,65 140,65 L 85,65 Q 75,65 75,75 L 75,122" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={acOutActive ? 1 : 0} />
-                  <AnimatedPath d="M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122" stroke={COLORS.red} strokeWidth={2} strokeLinecap="round" strokeDasharray="6,10" strokeDashoffset={flowDashOffset} fill="none" opacity={usbActive ? 1 : 0} />
+                  <FlowPath d={BOTTOM_AC} color={COLORS.red} active={acOutActive} dashOffset={flowDashOffset} />
+                  <FlowPath d={BOTTOM_USB} color={COLORS.red} active={usbActive} dashOffset={flowDashOffset} />
+                  <Circle cx={150} cy={8} r={3.5} fill={acOutActive || usbActive ? COLORS.red : COLORS.track} />
                 </Svg>
                 <View style={styles.iconsRowBottom}>
                   <IconCircle emoji="🏠" state={acOutActive ? 'discharging' : 'neutral'} watts={`${status.ac_out_w ?? 0} W`} name="CA" />
@@ -348,27 +491,6 @@ export default function App() {
     </>
   ) : null;
 
-  // ETA box: antes mostraba "Llena a las" + (alerta de batería baja O
-  // última vez que llegó AC) + Meta. Las tres se mudaron al diagrama
-  // principal ("Llena a las" y la alerta de batería baja bajo Tiempo
-  // restante en el aro, "última vez que llegó AC" al nodo AC) a pedido del
-  // usuario, para no repetir el mismo dato en dos lugares de la misma
-  // pantalla. Acá solo queda la Meta.
-  const etaBoxSection = status && status.ready && status.goal_label ? (
-    <View style={styles.etaBox}>
-      <Text style={[styles.etaGoal, { color: status.goal_met ? COLORS.green : COLORS.red }]}>
-        {status.goal_met ? '✅' : '⚠️'} Meta: {status.goal_floor}% para {status.goal_label} (proyectás {status.goal_projected?.toFixed(0)}%)
-      </Text>
-    </View>
-  ) : null;
-
-  const updatedRowSection = (
-    <View style={styles.updatedRow}>
-      <View style={[styles.liveDot, { backgroundColor: live === 'ok' ? COLORS.green : '#ef4444' }]} />
-      <Text style={styles.updatedText}>{updatedLabel}</Text>
-    </View>
-  );
-
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.root}>
@@ -377,10 +499,28 @@ export default function App() {
           contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.dim} />}
         >
+          {stale ? <StatusBanner minutesAgo={minutesAgo} /> : null}
           {notReadyCard}
-          {centerFlow}
-          {updatedRowSection}
-          {etaBoxSection}
+          <View style={[styles.body, wide && styles.bodyWide]}>
+          <View style={[styles.diagram, wide && styles.diagramWide, stale && styles.diagramStale]}>{centerFlow}</View>
+          {status && status.ready && !stale ? (
+            <View style={wide ? styles.plantWide : styles.plantNarrow}>
+            <PlantCard
+              percent={pct}
+              floorPct={floorPct}
+              pvW={status.pv_w ?? 0}
+              outW={outW}
+              hasAc={hasAc}
+              lastAcShort={status.last_ac_short}
+              origin={effectiveOrigin}
+              onOriginChange={onOriginChange}
+              gridOut={gridOut}
+              onGridBack={onGridBack}
+              now={now}
+            />
+            </View>
+          ) : null}
+          </View>
         </ScrollView>
 
       </SafeAreaView>
@@ -400,12 +540,8 @@ const styles = StyleSheet.create({
   ioRow: { width: '100%', maxWidth: 380, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
   ioCol: { flex: 1 },
   ioLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ioLabel: { fontSize: 13 },
-  ioValue: { fontSize: 20, fontWeight: '600', marginTop: 2, color: COLORS.text, fontVariant: ['tabular-nums'] },
-  ioCenter: { alignItems: 'center', paddingTop: 4, flex: 1 },
-  verb: { fontSize: 13, color: COLORS.dim },
-  emojiWrap: { marginTop: 2 },
-  sourceEmojiRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  ioLabel: { fontSize: 12, fontWeight: '600', letterSpacing: 0.4, textTransform: 'uppercase' },
+  ioValue: { fontSize: 24, fontWeight: '700', marginTop: 3, color: COLORS.text, fontVariant: ['tabular-nums'] },
 
   flowTopWrap: { width: 300, maxWidth: '100%', alignSelf: 'center', paddingBottom: 122 },
   iconsRowTop: { width: 300, maxWidth: 300, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-around' },
@@ -414,34 +550,32 @@ const styles = StyleSheet.create({
   flowConnectors: { position: 'absolute', top: 0, left: 0 },
   iconsRowBottom: { width: 300, maxWidth: 300, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-around' },
 
-  ringWrap: { width: 240, height: 240, marginTop: 6, marginBottom: 0, alignItems: 'center', justifyContent: 'center' },
+  ringWrap: { width: RING, height: RING, marginTop: 6, marginBottom: 0, alignItems: 'center', justifyContent: 'center' },
+  ringGlow: { position: 'absolute' },
   ringInner: {
-    width: 240 * 0.8, height: 240 * 0.8, borderRadius: (240 * 0.8) / 2, backgroundColor: COLORS.bg,
+    width: RING - 34, height: RING - 34, borderRadius: (RING - 34) / 2, backgroundColor: COLORS.disc,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center', justifyContent: 'center',
   },
   // Hooks laterales (Delta 2 propia / batería extra), anclados al borde del
-  // ring en su punto medio vertical (top: 120 = mitad de los 240px de
-  // ringWrap). left:240 = borde derecho, left:0 = borde izquierdo — mismos
+  // ring en su punto medio vertical (top: RING/2 = mitad de ringWrap).
+  // left:RING = borde derecho, left:0 = borde izquierdo — mismos
   // valores que .lateral-overlay/.lateral-overlay-left en
   // ecoflow_telegram_monitor.py. width/height:0 para no consumir layout.
-  lateralOverlayRight: { position: 'absolute', left: 240, top: 120, width: 0, height: 0 },
-  lateralOverlayLeft: { position: 'absolute', left: 0, top: 120, width: 0, height: 0 },
+  lateralOverlayRight: { position: 'absolute', left: RING, top: RING / 2, width: 0, height: 0 },
+  lateralOverlayLeft: { position: 'absolute', left: 0, top: RING / 2, width: 0, height: 0 },
 
-  pct: { fontSize: 48, fontWeight: '700', color: COLORS.text, fontVariant: ['tabular-nums'] },
+  pct: { fontSize: 46, fontWeight: '700', color: COLORS.text, fontVariant: ['tabular-nums'] },
   pctSubLabel: { fontSize: 13, color: COLORS.dim, marginTop: 8 },
-  pctSubDur: { fontSize: 22, color: '#e5e7eb', fontWeight: '700', marginTop: 2, fontVariant: ['tabular-nums'] },
+  pctSubDur: { fontSize: 21, color: '#e8edf2', fontWeight: '700', marginTop: 2, fontVariant: ['tabular-nums'] },
   pctEta: { fontSize: 13, fontWeight: '600', marginTop: 4 },
   pctThreshold: { fontSize: 12, fontWeight: '600', marginTop: 3, color: COLORS.red },
 
-  etaBox: {
-    marginTop: 4, paddingVertical: 14, paddingHorizontal: 22, borderRadius: 16, backgroundColor: COLORS.card,
-    alignItems: 'center', maxWidth: 340, width: '100%',
-  },
-  etaGoal: {
-    fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'], textAlign: 'center',
-  },
-
-  updatedRow: { flexDirection: 'row', alignItems: 'center', marginTop: 22 },
-  liveDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
-  updatedText: { fontSize: 12, color: '#7b8794' },
+  body: { width: '100%', alignItems: 'center' },
+  bodyWide: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 48 },
+  diagramWide: { width: 420 },
+  plantWide: { width: 340, marginTop: 70 },
+  plantNarrow: { width: '100%', alignItems: 'center' },
+  diagram: { width: '100%', alignItems: 'center' },
+  diagramStale: { opacity: 0.45 },
 });
