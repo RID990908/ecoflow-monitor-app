@@ -29,8 +29,10 @@ export type PlantNeed = {
   balanceW: number;
   // Projected battery % at NIGHT_START_HOUR (current % once that hour passed).
   projectedPct: number;
-  // Battery % needed at NIGHT_START_HOUR to get through the night.
+  // Battery % needed at NIGHT_START_HOUR to last NIGHT_HOURS at NIGHT_LOAD_W.
   requiredPct: number;
+  // Hours after NIGHT_START_HOUR that projectedPct lasts at NIGHT_LOAD_W.
+  lastsHours: number;
   // Hours left until NIGHT_START_HOUR (0 once it passed).
   hoursToNight: number;
   // Hours until the battery hits the reserve at the assumed night load (kind 'night').
@@ -51,12 +53,13 @@ export function plantNeed({ percent, floorPct, pvW, outW, capacityWh, plantW, no
   const hoursToNight = Math.max(0, (night.getTime() - nowMs) / 3600e3);
 
   const projectedPct = Math.min(100, Math.max(0, percent + ((balanceW * hoursToNight) / capacityWh) * 100));
+  const lastsHours = (Math.max(0, projectedPct - floorPct) / 100 * capacityWh) / NIGHT_LOAD_W;
   const requiredPct = Math.min(100, floorPct + ((NIGHT_LOAD_W * NIGHT_HOURS) / capacityWh) * 100);
-  if (projectedPct >= requiredPct) return { kind: 'ok', balanceW, projectedPct, requiredPct, hoursToNight };
+  if (projectedPct >= requiredPct) return { kind: 'ok', balanceW, projectedPct, requiredPct, lastsHours, hoursToNight };
 
   if (hoursToNight === 0) {
     const hoursToFloor = (Math.max(0, percent - floorPct) / 100 * capacityWh) / NIGHT_LOAD_W;
-    return { kind: 'night', balanceW, projectedPct, requiredPct, hoursToNight, hoursToFloor };
+    return { kind: 'night', balanceW, projectedPct, requiredPct, lastsHours, hoursToNight, hoursToFloor };
   }
 
   // With the plant on, the battery sees plant output + solar - house.
@@ -64,7 +67,7 @@ export function plantNeed({ percent, floorPct, pvW, outW, capacityWh, plantW, no
   const runHours = gapWh / Math.max(plantW + balanceW, 1);
   const startInHours = hoursToNight - runHours;
   const kind = startInHours <= 0 ? 'now' : startInHours < 2 ? 'soon' : 'later';
-  return { kind, balanceW, projectedPct, requiredPct, hoursToNight, startInHours, runHours };
+  return { kind, balanceW, projectedPct, requiredPct, lastsHours, hoursToNight, startInHours, runHours };
 }
 
 // `5 h 12 min` / `2 h` / `45 min`.

@@ -3,6 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { COLORS, PLANT_TONE_COLOR } from '../theme';
 import type { AcOrigin } from '../lib/acOrigin';
 import {
+  NIGHT_HOURS,
+  NIGHT_LOAD_W,
   NIGHT_START_HOUR,
   clockIn,
   formatHours,
@@ -32,6 +34,8 @@ export function PlantCard({
   // is it computed from sun vs. house consumption.
   const pctText = (v: number) => `${Math.round(v)}%`;
   const nightText = `${NIGHT_START_HOUR}:00`;
+  const morningText = `${String((NIGHT_START_HOUR + NIGHT_HOURS) % 24).padStart(2, '0')}:00`;
+  const lastsClock = clockIn(need.hoursToNight + need.lastsHours, now);
 
   let title: string;
   let tone: string;
@@ -53,8 +57,8 @@ export function PlantCard({
     reason = (
       <>
         {need.hoursToNight > 0 ? 'Llegas' : 'Estás'} a las {nightText} con{' '}
-        <Text style={styles.strong}>{pctText(need.projectedPct)}</Text>, y para pasar la noche necesitas{' '}
-        <Text style={styles.strong}>{pctText(need.requiredPct)}</Text>.
+        <Text style={styles.strong}>{pctText(need.projectedPct)}</Text>, que a ~{NIGHT_LOAD_W} W alcanzan hasta las{' '}
+        <Text style={styles.strong}>{lastsClock}</Text>.
       </>
     );
   } else if (need.kind === 'night') {
@@ -73,8 +77,8 @@ export function PlantCard({
     reason = (
       <>
         {need.hoursToNight > 0 ? 'A' : 'Son más de'} las {nightText} {need.hoursToNight > 0 ? 'llegarías con' : 'y tienes'}{' '}
-        <Text style={styles.strong}>{pctText(need.projectedPct)}</Text> y necesitas{' '}
-        <Text style={styles.strong}>{pctText(need.requiredPct)}</Text>. Hacen falta ~
+        <Text style={styles.strong}>{pctText(need.projectedPct)}</Text>, que a ~{NIGHT_LOAD_W} W solo alcanzan hasta las{' '}
+        <Text style={styles.strong}>{lastsClock}</Text> y el sol vuelve hacia las {morningText}. Hacen falta ~
         <Text style={styles.strong}>{formatHours(need.runHours ?? 0)}</Text> de planta
         {need.kind === 'now' ? '.' : <> (empieza antes de las <Text style={styles.strong}>{clockIn(need.startInHours ?? 0, now)}</Text>).</>}
       </>
@@ -98,11 +102,7 @@ export function PlantCard({
         <View style={styles.stats}>
           <Stat label="Ahora" value={pctText(percent)} />
           <Stat label={`A las ${nightText}`} value={pctText(need.projectedPct)} />
-          <Stat
-            label="Necesitas"
-            value={pctText(need.requiredPct)}
-            color={need.projectedPct >= need.requiredPct ? COLORS.green : COLORS.red}
-          />
+          <Stat label="Dura hasta" value={lastsClock} color={need.projectedPct >= need.requiredPct ? COLORS.green : COLORS.red} />
         </View>
       ) : null}
 
