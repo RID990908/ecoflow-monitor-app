@@ -91,6 +91,8 @@ type StatusResponse = {
   threshold_text?: string | null;
   threshold_short?: string | null;
   threshold_pct?: number | null;
+  ac_origin?: AcOrigin;
+  grid_out?: boolean;
   last_ac_text?: string | null;
   last_ac_short?: string | null;
   remain_duration?: string | null;
@@ -109,14 +111,17 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastSuccessAt, setLastSuccessAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  // Where the AC input comes from. In-memory only; persisting it across
-  // launches is a follow-up.
+  // Where the AC input comes from, as marked by the user. The backend keeps it
+  // (it survives restarts); local state only smooths the tap until the next
+  // poll echoes it back.
   const [acOrigin, setAcOrigin] = useState<AcOrigin>('unclassified');
-  // Street power is out: once the plant was chosen as the AC source, or AC
-  // that was classified as grid dropped, "Red (calle)" is no longer offered
-  // and any AC that shows up is assumed to come from the plant until the user
-  // says the grid is back. In-memory like acOrigin (persistence is a follow-up).
+  // Street power is out: the plant was chosen as the AC source, or AC that was
+  // classified as grid dropped. Any AC that shows up is assumed to come from
+  // the plant until the user says the grid is back.
   const [gridOut, setGridOut] = useState(false);
+  // Ignore server echoes briefly after a tap so a poll already in flight does
+  // not undo it.
+  const originTapAt = useRef(0);
 
   // Derived flow flags (computed before the effects below so hooks stay
   // unconditional and in a stable order).
@@ -128,30 +133,34 @@ export default function App() {
   const redActive = hasAc && effectiveOrigin !== 'plant';
   const plantActive = hasAc && effectiveOrigin === 'plant';
 
-  const prevHasAc = useRef(hasAc);
+  const serverOrigin = status?.ac_origin;
+  const serverGridOut = status?.grid_out;
   useEffect(() => {
-    if (prevHasAc.current && !hasAc && acOrigin === 'grid') setGridOut(true);
-    prevHasAc.current = hasAc;
-  }, [hasAc, acOrigin]);
+    if (Date.now() - originTapAt.current < 3000) return;
+    if (serverOrigin) setAcOrigin(serverOrigin);
+    if (serverGridOut !== undefined) setGridOut(serverGridOut);
+  }, [serverOrigin, serverGridOut]);
+
   // Tapping the Red / Planta nodes marks where the AC comes from; tapping the
   // active one again clears it. While the grid is out, Red means "grid is back".
+  const markOrigin = useCallback((next: AcOrigin) => {
+    originTapAt.current = Date.now();
+    setAcOrigin(next);
+    setGridOut(next === 'plant');
+    fetch(`${API_BASE}/api/ac-origin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ origin: next }),
+    }).catch(() => {
+      // Offline: the tap stays local and the next poll restores the server value.
+    });
+  }, []);
   const onRedPress = useCallback(() => {
-    if (gridOut) {
-      setGridOut(false);
-      setAcOrigin('grid');
-    } else {
-      setAcOrigin((cur) => (cur === 'grid' ? 'unclassified' : 'grid'));
-    }
-  }, [gridOut]);
+    markOrigin(gridOut || acOrigin !== 'grid' ? 'grid' : 'unclassified');
+  }, [markOrigin, gridOut, acOrigin]);
   const onPlantPress = useCallback(() => {
-    if (gridOut || acOrigin === 'plant') {
-      setGridOut(false);
-      setAcOrigin('unclassified');
-    } else {
-      setAcOrigin('plant');
-      setGridOut(true);
-    }
-  }, [gridOut, acOrigin]);
+    markOrigin(acOrigin === 'plant' ? 'unclassified' : 'plant');
+  }, [markOrigin, acOrigin]);
   const solarActive = (status?.pv_w ?? 0) > 0;
   const acOutActive = (status?.ac_out_w ?? 0) > 0;
   const usbActive = (status?.usb_out_w ?? 0) > 0;
