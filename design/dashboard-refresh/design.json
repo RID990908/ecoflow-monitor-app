@@ -1,0 +1,55 @@
+{
+  "title": "Dashboard visual refresh",
+  "brief": "Visual refresh of the EcoFlow Monitor dashboard (Expo app + web export): battery ring, power-flow diagram, Delta 2 / extra battery nodes, goal box",
+  "artboards": [
+    {
+      "file": "01-aurora-glass.html",
+      "title": "Aurora glass",
+      "tradeoff": "Most striking and premium; glow and blur cost GPU on low-end Android and need fallbacks",
+      "width": 390,
+      "height": 900
+    },
+    {
+      "file": "02-bento-instrument.html",
+      "title": "Bento instrument",
+      "tradeoff": "Clearest and cheapest to build; drops the connector-line diagram, so less 'flow' feeling",
+      "width": 390,
+      "height": 900
+    },
+    {
+      "file": "03-light-eco.html",
+      "title": "Light eco",
+      "tradeoff": "Friendly and readable outdoors in sun; breaks the current dark identity and needs a full second palette",
+      "width": 390,
+      "height": 900
+    },
+    {
+      "file": "04-flow-polished.html",
+      "title": "Flow polished",
+      "tradeoff": "Keeps the current flow structure; gas-plant input with a needed/when/how-long verdict; AC origin is non-blocking (starts unclassified, applied retroactively). Needs battery capacity, plant output, target % and a backend timestamp for AC arrival",
+      "width": 390,
+      "height": 1060
+    },
+    {
+      "file": "05-tower-options.html",
+      "title": "Tower icon options",
+      "tradeoff": "Seven pylon icon ideas (A-G) for the grid-power (Red) node; C (tower with bolt) chosen and applied to 04",
+      "width": 1000,
+      "height": 1000
+    },
+    {
+      "file": "06-generator-options.html",
+      "title": "Gas generator icon options",
+      "tradeoff": "Seven portable generator icon ideas (A-G) for the Planta node; E (gas tank with flame) chosen and applied to 04",
+      "width": 1000,
+      "height": 1000
+    },
+    {
+      "file": "07-generator-solid.html",
+      "title": "Solid-style generator options",
+      "tradeoff": "Seven filled-glyph generator ideas (A-G); E (wheeled) with bolt cut-out plus a flame badge chosen and applied to 04",
+      "width": 1000,
+      "height": 1000
+    }
+  ]
+}

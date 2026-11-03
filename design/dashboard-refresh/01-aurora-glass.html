@@ -1,0 +1,55 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aurora glass</title>
+<style>
+:root{--bg:#070b12;--g:#4ade80;--g2:#22d3ee;--r:#f87171;--text:#f4f7fb;--dim:#a3afbf;--faint:#7d8a9b;--glass:rgba(255,255,255,.06);--line:rgba(255,255,255,.12)}
+*{box-sizing:border-box;margin:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:900px;position:relative;overflow-x:hidden}
+body:before,body:after{content:"";position:absolute;border-radius:50%;filter:blur(70px);z-index:0;pointer-events:none}
+body:before{width:320px;height:320px;background:rgba(74,222,128,.28);top:120px;left:-90px}
+body:after{width:300px;height:300px;background:rgba(34,211,238,.2);top:380px;right:-100px}
+main{position:relative;z-index:1;padding:22px 18px 40px;max-width:390px;margin:auto}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+h1{font-size:17px;font-weight:700;letter-spacing:.2px}
+.live{display:flex;gap:7px;align-items:center;font-size:12px;color:var(--dim);padding:6px 11px;border-radius:99px;background:var(--glass);border:1px solid var(--line)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--g);box-shadow:0 0 0 0 rgba(74,222,128,.6);animation:p 2s infinite}
+@keyframes p{70%{box-shadow:0 0 0 7px rgba(74,222,128,0)}}
+.hero{position:relative;width:260px;height:260px;margin:6px auto 22px}
+.hero svg{position:absolute;inset:0;filter:drop-shadow(0 0 14px rgba(74,222,128,.55))}
+.inner{position:absolute;inset:30px;border-radius:50%;background:radial-gradient(circle at 50% 30%,rgba(255,255,255,.08),rgba(255,255,255,.02));border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;backdrop-filter:blur(10px)}
+.pct{font-size:52px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-1px}.pct small{font-size:24px;color:var(--dim)}
+.lbl{font-size:12px;color:var(--dim);margin-top:4px}.dur{font-size:21px;font-weight:700;margin-top:2px}
+.eta{font-size:12px;color:var(--g);font-weight:600;margin-top:5px}
+.io{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.card{background:var(--glass);border:1px solid var(--line);border-radius:20px;padding:14px;backdrop-filter:blur(14px)}
+.io .k{font-size:12px;display:flex;align-items:center;gap:6px;color:var(--dim)}
+.io .v{font-size:26px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums}.io .v small{font-size:13px;color:var(--dim);font-weight:500}
+.in .k{color:var(--g)}.out .k{color:var(--r)}
+.bar{height:4px;border-radius:4px;background:rgba(255,255,255,.08);margin-top:10px;overflow:hidden}.bar i{display:block;height:100%;border-radius:4px}
+.in .bar i{width:68%;background:linear-gradient(90deg,var(--g),var(--g2))}.out .bar i{width:36%;background:linear-gradient(90deg,#fb923c,var(--r))}
+h2{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);margin:20px 4px 10px;font-weight:600}
+.row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.n{text-align:center;padding:12px 4px}
+.ic{width:42px;height:42px;border-radius:14px;margin:0 auto 8px;display:grid;place-items:center;font-size:19px;background:rgba(255,255,255,.07)}
+.on-g .ic{background:rgba(74,222,128,.18);box-shadow:0 0 18px rgba(74,222,128,.3)}.on-r .ic{background:rgba(248,113,113,.18);box-shadow:0 0 18px rgba(248,113,113,.28)}
+.n b{display:block;font-size:13px;font-variant-numeric:tabular-nums}.n span{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px}
+.bat{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.bat .ic{margin:0;flex:none}.bat .t{flex:1}.bat .t b{font-size:14px}.bat .t div{font-size:12px;color:var(--dim);margin-top:2px}
+.bat .r{text-align:right;font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}.bat .r small{display:block;font-size:11px;font-weight:600}
+.goal{margin-top:14px;border-radius:18px;padding:14px 16px;font-size:13px;font-weight:600;background:linear-gradient(135deg,rgba(74,222,128,.18),rgba(34,211,238,.1));border:1px solid rgba(74,222,128,.35)}
+:focus-visible{outline:2px solid var(--g2);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.dot{animation:none}}
+</style></head><body><main>
+<header><h1>EcoFlow Monitor</h1><div class="live" role="status"><span class="dot"></span>Actualizado ahora</div></header>
+<section class="hero" aria-label="Batería 62.4 por ciento">
+<svg width="260" height="260" viewBox="0 0 260 260"><defs><linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4ade80"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+<circle cx="130" cy="130" r="120" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="12"/>
+<circle cx="130" cy="130" r="120" fill="none" stroke="url(#a)" stroke-width="12" stroke-linecap="round" stroke-dasharray="470 754" transform="rotate(-90 130 130)"/></svg>
+<div class="inner"><div class="pct">62.4<small>%</small></div><div class="lbl">Tiempo restante</div><div class="dur">5 h 12 min</div><div class="eta">Llena a las 18:40</div></div></section>
+<div class="io"><div class="card in"><div class="k">▼ Entrada</div><div class="v">340 <small>W</small></div><div class="bar"><i></i></div></div>
+<div class="card out"><div class="k">▲ Salida</div><div class="v">180 <small>W</small></div><div class="bar"><i></i></div></div></div>
+<h2>Fuentes y salidas</h2>
+<div class="row"><div class="card n"><div class="ic">🔌</div><b>0 W</b><span>CA in</span></div><div class="card n on-g"><div class="ic">☀️</div><b>340 W</b><span>Solar</span></div><div class="card n on-r"><div class="ic">🏠</div><b>150 W</b><span>CA out</span></div><div class="card n on-r"><div class="ic">⚡</div><b>30 W</b><span>USB</span></div></div>
+<h2>Baterías</h2>
+<div class="card bat on-g"><div class="ic">🔋</div><div class="t"><b>Delta 2</b><div>Cargando · 120 W</div></div><div class="r">78.0%<small style="color:var(--g)">1 h 40 min</small></div></div>
+<div class="card bat on-r"><div class="ic">🔋</div><div class="t"><b>Batería extra</b><div>Descargando · 60 W</div></div><div class="r">46.5%<small style="color:var(--r)">3 h 05 min</small></div></div>
+<div class="goal">✅ Meta: 30% para 06:00 (proyectas 41%)</div>
+</main></body></html>

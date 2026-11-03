@@ -1,0 +1,44 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Light eco</title>
+<style>
+:root{--bg:#f1f6f1;--card:#ffffff;--line:#e0e9e1;--text:#12261a;--dim:#4b6254;--faint:#6b8173;--g:#15803d;--gb:#dcfce7;--r:#b91c1c;--rb:#fee2e2;--lime:#a3e635}
+*{box-sizing:border-box;margin:0}
+body{font-family:ui-rounded,"SF Pro Rounded",-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+main{max-width:390px;margin:auto;padding:22px 16px 40px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+h1{font-size:20px;font-weight:700}h1 span{display:block;font-size:12px;color:var(--faint);font-weight:500;margin-top:2px}
+.live{font-size:12px;font-weight:600;color:var(--g);background:var(--gb);padding:6px 11px;border-radius:99px;display:flex;gap:6px;align-items:center}.live i{width:7px;height:7px;background:var(--g);border-radius:50%}
+.hero{background:linear-gradient(160deg,#166534,#15803d 60%,#4d7c0f);color:#fff;border-radius:30px;padding:22px 20px 20px;position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;width:200px;height:200px;border-radius:50%;background:rgba(163,230,53,.22);right:-60px;top:-60px}
+.hero .top{display:flex;align-items:center;gap:18px;position:relative;z-index:1}
+.ring{position:relative;width:128px;height:128px;flex:none}.ring svg{position:absolute;inset:0}
+.ring .p{position:absolute;inset:0;display:grid;place-items:center;font-size:30px;font-weight:700;font-variant-numeric:tabular-nums}.ring .p small{font-size:14px;opacity:.8}
+.hero h3{font-size:12px;font-weight:500;opacity:.85}.hero .d{font-size:28px;font-weight:700;margin:3px 0 8px;line-height:1.1}
+.pill{display:inline-block;font-size:12px;font-weight:600;background:rgba(255,255,255,.2);padding:5px 10px;border-radius:99px}
+.flow{display:flex;margin-top:18px;background:rgba(0,0,0,.18);border-radius:18px;position:relative;z-index:1}
+.flow div{flex:1;padding:12px 14px}.flow div+div{border-left:1px solid rgba(255,255,255,.18)}
+.flow span{font-size:12px;opacity:.85}.flow b{display:block;font-size:24px;font-variant-numeric:tabular-nums;margin-top:2px}
+h2{font-size:13px;font-weight:700;margin:22px 4px 10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.c{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:14px;box-shadow:0 2px 0 rgba(21,128,61,.05)}
+.n{display:flex;align-items:center;gap:10px}
+.ic{width:40px;height:40px;border-radius:14px;display:grid;place-items:center;font-size:18px;background:#eef3ee;flex:none}
+.g .ic{background:var(--gb)}.r .ic{background:var(--rb)}
+.n b{font-size:16px;font-variant-numeric:tabular-nums;display:block}.n span{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px}
+.bat{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.bat .t{flex:1}.bat .t b{font-size:15px}.bat .t div{font-size:12px;color:var(--dim);margin-top:2px}
+.track{height:7px;background:#e8efe9;border-radius:7px;margin-top:8px;overflow:hidden}.track i{display:block;height:100%;border-radius:7px}
+.bat .v{text-align:right;font-weight:700;font-size:19px;font-variant-numeric:tabular-nums}.bat .v small{display:block;font-size:12px;font-weight:700}
+.goal{margin-top:12px;background:var(--gb);color:#14532d;border-radius:20px;padding:14px 16px;font-size:13px;font-weight:700}
+:focus-visible{outline:3px solid #166534;outline-offset:3px}
+</style></head><body><main>
+<header><h1>EcoFlow<span>Mi estación de energía</span></h1><div class="live" role="status"><i></i>En vivo</div></header>
+<section class="hero" aria-label="Batería 62.4 por ciento"><div class="top"><div class="ring"><svg width="128" height="128" viewBox="0 0 128 128"><circle cx="64" cy="64" r="56" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="12"/><circle cx="64" cy="64" r="56" fill="none" stroke="#bef264" stroke-width="12" stroke-linecap="round" stroke-dasharray="220 352" transform="rotate(-90 64 64)"/></svg><div class="p">62.4<small>%</small></div></div>
+<div><h3>Tiempo restante</h3><div class="d">5 h 12 min</div><span class="pill">Llena a las 18:40</span></div></div>
+<div class="flow"><div><span>▼ Entrada</span><b>340 W</b></div><div><span>▲ Salida</span><b>180 W</b></div></div></section>
+<h2>Fuentes y salidas</h2>
+<div class="grid"><div class="c n"><div class="ic">🔌</div><div><b>0 W</b><span>Red CA</span></div></div><div class="c n g"><div class="ic">☀️</div><div><b>340 W</b><span>Solar</span></div></div><div class="c n r"><div class="ic">🏠</div><div><b>150 W</b><span>Salida CA</span></div></div><div class="c n r"><div class="ic">⚡</div><div><b>30 W</b><span>USB</span></div></div></div>
+<h2>Baterías</h2>
+<div class="c bat g"><div class="ic">🔋</div><div class="t"><b>Delta 2</b><div>Cargando · +120 W</div><div class="track"><i style="width:78%;background:#16a34a"></i></div></div><div class="v">78.0%<small style="color:var(--g)">1 h 40 min</small></div></div>
+<div class="c bat r"><div class="ic">🔋</div><div class="t"><b>Batería extra</b><div>Descargando · −60 W</div><div class="track"><i style="width:46.5%;background:#dc2626"></i></div></div><div class="v">46.5%<small style="color:var(--r)">3 h 05 min</small></div></div>
+<div class="goal">✅ Meta: 30% para 06:00 (proyectas 41%)</div>
+</main></body></html>

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "chosen": "04-flow-polished.html",
+  "handoffs": {
+    "04-flow-polished.html": {
+      "status": "implemented",
+      "queued": false,
+      "sentAt": "2026-11-03T19:29:43.846Z",
+      "startedAt": null,
+      "implementedAt": "2026-11-03T19:35:10.175Z",
+      "note": "Implemented in the Expo app + web export. Plant verdict is computed client-side with assumed constants; AC origin is in-memory (not persisted); not tested on a device.",
+      "previewUrl": "http://localhost:8770/"
+    }
+  }
+}

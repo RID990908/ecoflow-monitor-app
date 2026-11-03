@@ -1,0 +1,153 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Flow polished</title>
+<style>
+:root{--bg:#090d12;--card:#121921;--line:#232c36;--text:#f5f7fa;--dim:#9aa6b3;--faint:#6b7786;--g:#4ade80;--r:#f87171;--y:#eab308;--gbg:#112d1c;--rbg:#331616;--nbg:#18202a}
+*{box-sizing:border-box;margin:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:900px}
+.bg{background:radial-gradient(420px 320px at 50% 38%,rgba(74,222,128,.10),transparent 70%),radial-gradient(300px 200px at 50% 0,rgba(255,255,255,.04),transparent 70%)}
+main{max-width:390px;margin:auto;padding:22px 20px 44px;display:flex;flex-direction:column;align-items:center}
+/* io row */
+.io{width:100%;display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.io>div{flex:1}.io .k{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+.io .v{font-size:24px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums}.io .v small{font-size:13px;color:var(--dim);font-weight:500}
+.io .in .k{color:var(--g)}.io .out{text-align:right}.io .out .k{color:var(--r);justify-content:flex-end}
+.io .mid{text-align:center;padding-top:2px}.io .mid span{font-size:12px;color:var(--dim)}.io .mid b{display:grid;place-items:center;width:40px;height:40px;margin:5px auto 0;border-radius:50%;background:var(--nbg);border:1px solid var(--line);font-size:19px;font-weight:400}
+/* nodes */
+.node{width:84px;text-align:center;position:relative}
+.circ svg{display:block;flex:none}.circ{width:54px;height:54px;border-radius:50%;margin:0 auto;display:grid;place-items:center;font-size:23px;background:radial-gradient(circle at 50% 25%,#202a35,var(--nbg));border:1.5px solid var(--line)}
+.node.g .circ{background:radial-gradient(circle at 50% 25%,#1d4a2d,var(--gbg));border-color:rgba(74,222,128,.6);box-shadow:0 0 0 4px rgba(74,222,128,.08),0 0 22px rgba(74,222,128,.28)}
+.node.r .circ{background:radial-gradient(circle at 50% 25%,#552424,var(--rbg));border-color:rgba(248,113,113,.6);box-shadow:0 0 0 4px rgba(248,113,113,.08),0 0 22px rgba(248,113,113,.25)}
+.w{font-size:13px;font-weight:600;margin-top:6px;font-variant-numeric:tabular-nums}.node:not(.g):not(.r) .w{color:var(--dim)}
+.dir{font-size:10.5px;white-space:nowrap;height:14px;color:var(--faint);margin-top:1px}.node.g .dir{color:var(--g)}
+.nm{font-size:10px;color:var(--faint);letter-spacing:.8px;text-transform:uppercase;font-weight:600;margin-top:2px}
+.wrap{position:relative;width:300px}
+.row{display:flex;justify-content:space-around;width:300px}
+.top{padding-bottom:122px}.top>svg{position:absolute;left:0;bottom:0}
+.bot{padding-top:122px}.bot>svg{position:absolute;left:0;top:0}
+.base{stroke:#26303b;stroke-width:2;fill:none}
+.flow{fill:none;stroke-width:2.5;stroke-linecap:round;stroke-dasharray:6 10;animation:d .9s linear infinite}
+.flow.g{stroke:var(--g);filter:drop-shadow(0 0 3px rgba(74,222,128,.8))}.flow.r{stroke:var(--r);filter:drop-shadow(0 0 3px rgba(248,113,113,.8))}
+@keyframes d{to{stroke-dashoffset:-16}}
+/* ring */
+.ringwrap{position:relative;width:224px;height:224px;margin:4px 0}
+.ringwrap>svg.r{position:absolute;inset:0;overflow:visible}
+.disc{position:absolute;inset:17px;border-radius:50%;background:radial-gradient(circle at 50% 18%,#17202a,#0c1117 70%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.05),inset 0 8px 24px rgba(0,0,0,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.pct{font-size:46px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-1px}.pct small{font-size:22px;color:var(--dim);font-weight:600}
+.sub{font-size:12px;color:var(--dim);margin-top:7px}.dur{font-size:21px;font-weight:700;margin-top:1px;color:#e8edf2;font-variant-numeric:tabular-nums}
+.eta{font-size:12px;font-weight:600;margin-top:4px;color:var(--g)}
+.lat{position:absolute;top:112px;width:0;height:0}.lat.rt{left:224px}.lat.lf{left:0}
+.lat.rt>svg{left:0}.lat.lf>svg{right:0}
+.ln{position:absolute;top:16px;width:60px;text-align:center}.lat.rt .ln{left:20px}.lat.lf .ln{left:-80px}
+.ln .circ{width:40px;height:40px;font-size:0}
+.ln .w{font-size:11px;margin-top:4px}.ln .nm{font-size:9px}.ln .p{font-size:12px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums}.ln .t{font-size:10px;font-weight:600;margin-top:1px}
+.ln.g .p{color:#e5ebf0}
+/* footer */
+.upd{display:flex;align-items:center;gap:7px;margin-top:20px;font-size:12px;color:#7f8c9a}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--g);animation:pl 2s infinite}@keyframes pl{0%{box-shadow:0 0 0 0 rgba(74,222,128,.55)}70%,100%{box-shadow:0 0 0 7px rgba(74,222,128,0)}}
+.src{margin-top:16px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--dim)}
+.seg{display:flex;padding:3px;border-radius:99px;background:var(--nbg);border:1px solid var(--line)}
+.seg button{font:inherit;font-size:12px;font-weight:600;color:var(--dim);background:none;border:0;border-radius:99px;padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed=true]{background:#1d4a2d;color:#d9f7e3;box-shadow:0 0 0 1px rgba(74,222,128,.45)}
+.node.sel .circ{border-color:rgba(255,255,255,.35);box-shadow:0 0 0 4px rgba(255,255,255,.05)}
+.node.ok .dir{color:var(--g)}.node.warn .dir{color:var(--y)}.node.bad .dir{color:var(--r)}
+.plant{margin-top:14px;width:100%;max-width:340px;border-radius:20px;background:var(--card);border:1px solid var(--line);padding:14px 16px}
+.plant h3{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);font-weight:600;display:flex;justify-content:space-between}
+.verdict{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:17px;font-weight:700}
+.verdict i{width:10px;height:10px;border-radius:50%;flex:none;background:var(--g);box-shadow:0 0 10px currentColor}
+.verdict.ok{color:var(--g)}.verdict.warn{color:var(--y)}.verdict.bad{color:var(--r)}.verdict i{background:currentColor}
+.eq{display:flex;margin-top:12px;border-radius:14px;background:#0e141b;border:1px solid var(--line);text-align:center}
+.eq div{flex:1;padding:9px 4px}.eq div+div{border-left:1px solid var(--line)}.eq span{display:block;font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.6px}.eq b{font-size:15px;font-variant-numeric:tabular-nums}
+.facts{margin-top:10px;font-size:12px;color:var(--dim);line-height:1.55}.facts b{color:var(--text);font-variant-numeric:tabular-nums}
+.sim{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);display:grid;gap:6px;font-size:11px;color:var(--faint)}
+.sim label{display:grid;grid-template-columns:78px 1fr 52px;align-items:center;gap:8px}.sim output{text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}
+.sim input{accent-color:#4ade80;width:100%}
+.plant .l1{margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--dim)}.plant .l1 b{color:var(--text);font-variant-numeric:tabular-nums}
+.plant .pill{font-size:11px;font-weight:600;padding:4px 9px;border-radius:99px;background:rgba(234,179,8,.14);color:var(--y);white-space:nowrap}.plant .pill.red{background:rgba(74,222,128,.14);color:var(--g)}
+.plant .l2{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--dim)}
+.plant .note{margin-top:8px;font-size:11px;color:var(--faint);line-height:1.45}
+.hook{position:absolute;overflow:visible;top:0}
+.hook .track{fill:none;stroke:#222b35;stroke-width:3;stroke-linecap:round}
+.hook .core{display:none}
+.hook .halo{fill:none;stroke-width:7;stroke-linecap:round;opacity:.3}
+.hook .beam{fill:none;stroke-width:2.5;stroke-linecap:round;stroke-dasharray:6 8;animation:hk .8s linear infinite}
+.hook .beam.g{stroke:url(#hgG);filter:drop-shadow(0 0 3px rgba(74,222,128,.9))}.hook .beam.r{stroke:url(#hgR);filter:drop-shadow(0 0 3px rgba(248,113,113,.9))}
+.hook .halo.g{stroke:#4ade80}.hook .halo.r{stroke:#f87171}
+@keyframes hk{to{stroke-dashoffset:-14}}
+@media(prefers-reduced-motion:reduce){.hook .beam{animation:none;stroke-dasharray:none}}
+.live{position:absolute;top:15px;left:50%;margin-left:-5px;width:10px;height:10px}
+.live i{display:block;width:10px;height:10px;border-radius:50%;background:var(--g);animation:pl 2s infinite}
+.banner{width:100%;margin-bottom:12px;padding:9px 14px;border-radius:14px;font-size:12px;text-align:center;color:#fecaca;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.35)}.banner[hidden]{display:none}
+.stale .live i{background:var(--r);animation:none}.stale .ringwrap,.stale .wrap{opacity:.45;filter:grayscale(.7)}
+.sim label.chk{display:flex;gap:8px;align-items:center;color:var(--dim)}
+.io .mid{padding-top:0;align-self:center}.io .mid .state{display:inline-block;font-size:12px;font-weight:600;color:var(--g);background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.28);padding:5px 12px;border-radius:99px}
+.io .mid .state.idle{color:var(--dim);background:rgba(255,255,255,.05);border-color:var(--line)}
+:focus-visible{outline:2px solid var(--g);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.flow,.dot{animation:none}}
+.plant .stats{display:flex;margin-top:12px;border:1px solid var(--line);border-radius:12px;background:#0f151c}.plant .stats div{flex:1;text-align:center;padding:8px 0}.plant .stats span{display:block;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--faint,#8593a3);font-weight:600}.plant .stats b{font-size:14px;font-variant-numeric:tabular-nums}.plant .clock{margin:10px 0 0;font-size:12px;color:var(--dim)}.plant .clock b{color:var(--text)}.node.tap{cursor:pointer}.node.tap .nm{text-decoration:underline}</style></head><body><div class="bg"><main><div class="banner" id="banner" role="alert" hidden><b>Sin conexión</b> · datos de hace 2 min</div>
+<section class="io" aria-label="Entrada y salida">
+ <div class="in"><div class="k"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 1v9M2 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Entrada</div><div class="v">340 <small>W</small></div></div>
+ 
+ <div class="out"><div class="k">Salida<svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 11V2M2 6l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="v">180 <small>W</small></div></div>
+</section>
+
+<div class="wrap top"><div class="row">
+ <div class="node" id="nRed"><div class="circ"><svg width="34" height="34" viewBox="0 0 24 24" role="img" aria-label="Red de la calle"><defs><linearGradient id="steelC" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d3dde5"/><stop offset="1" stop-color="#7f93a4"/></linearGradient></defs><g fill="none" stroke="url(#steelC)" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 2 5 21M10.5 2 16 21" stroke-width="1.7"/><path d="M8.6 10h3.8M7 15.5h7" stroke-width="1.2"/><path d="M8.6 10l5.4 5.5M12.4 10 7 15.5" stroke-width="1"/><path d="M3.6 6.2h13.8M2.6 10.6h15.8" stroke-width="1.5"/></g><g fill="#7ee3f2"><circle cx="3.6" cy="8" r=".9"/><circle cx="17.4" cy="8" r=".9"/></g><circle cx="18.6" cy="18.4" r="5" fill="#eab308"/><path d="M19.6 14.6 16.6 19h2l-.8 3.4 3.2-4.6h-2z" fill="#1b1405"/></svg></div><div class="w">0 W</div><div class="dir">hace 2 h</div><div class="nm">Red</div></div>
+ <div class="node" id="nGas"><div class="circ"><svg width="36" height="36" viewBox="0 0 24 24" role="img" aria-label="Planta de gas"><defs><linearGradient id="stP" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e4ecf2"/><stop offset="1" stop-color="#8ea2b3"/></linearGradient><mask id="mP" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/><g fill="#000"><g transform="translate(1.6 -1.4) scale(.86)"><rect x="4.6" y="10.1" width="6.2" height="2" rx="1"/><circle cx="14.4" cy="11.1" r="1.2"/><circle cx="18.1" cy="11.1" r="1.2"/><path d="M13.54 12.40 L9.21 16.10 L12.10 16.10 L11.03 19.00 L15.74 14.91 L12.70 14.91z"/></g><circle cx="16.6" cy="16.4" r="3.8"/><circle cx="5.2" cy="17.8" r="4.9"/></g></mask></defs><g mask="url(#mP)" fill="url(#stP)"><g transform="translate(1.6 -1.4) scale(.86)"><path d="M5.5 8h13A3 3 0 0 1 21.5 11v5.5a3 3 0 0 1-3 3h-13a3 3 0 0 1-3-3V11A3 3 0 0 1 5.5 8z"/><path d="M7.8 8V6a1.6 1.6 0 0 1 1.6-1.6h5.2A1.6 1.6 0 0 1 16.2 6v2h-2V6.4H9.8V8z"/><rect x="17.6" y="5.2" width="2.6" height="2.4" rx=".7"/></g></g><circle cx="16.6" cy="16.4" r="2.8" fill="url(#stP)"/><circle cx="16.6" cy="16.4" r="1" fill="#0c1117"/><circle cx="5.2" cy="17.8" r="4.1" fill="#fb923c"/><path d="M12 2c1 3.5 5 5.5 5 10.2A5 5 0 0 1 12 17.5a5 5 0 0 1-5-5.3c0-2 1-3.4 2.2-4.6.3 1.6 1 2.4 1.8 2.8C11 8 11.2 4.6 12 2z" fill="#2b1203" transform="translate(5.2 18.3) scale(.3) translate(-12 -9.75)"/></svg></div><div class="w">0 W</div><div class="dir" id="gasDir">No necesaria</div><div class="nm">Planta</div></div>
+ <div class="node g"><div class="circ">☀️</div><div class="w">340 W</div><div class="dir"></div><div class="nm">Solar</div></div></div>
+ <svg width="300" height="130" viewBox="0 0 300 130" aria-hidden="true">
+  <path class="base" d="M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75"/><path class="base" d="M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75"/><path class="base" d="M 150,8 L 150,122"/>
+  <path class="flow g" d="M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75 L 150,122"/><circle cx="150" cy="122" r="3.5" fill="#4ade80"/></svg></div>
+
+<section class="ringwrap" aria-label="Batería 62.4 por ciento">
+ <svg class="r" width="224" height="224" viewBox="0 0 224 224" aria-hidden="true"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#86efac"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs>
+  <circle cx="112" cy="112" r="104" fill="none" stroke="#1a222b" stroke-width="14"/>
+  <circle cx="112" cy="112" r="104" fill="none" stroke="url(#rg)" stroke-width="14" stroke-linecap="round" stroke-dasharray="408 654" transform="rotate(-90 112 112)" style="filter:drop-shadow(0 0 8px rgba(74,222,128,.5))"/></svg>
+ <div class="disc"><span class="live" id="live" role="status" aria-label="Datos en vivo, actualizados ahora" title="Actualizado ahora"><i></i></span><div class="pct">62.4<small>%</small></div><div class="sub">Tiempo restante</div><div class="dur">5 h 12 min</div><div class="eta" id="etaLine">Cargando · llena 18:40</div></div>
+ <div class="lat lf"><svg class="hook" width="64" height="44" viewBox="-64 0 64 44" aria-hidden="true"><defs><linearGradient id="hgG" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="40"><stop offset="0" stop-color="#bbf7d0"/><stop offset="1" stop-color="#22c55e"/></linearGradient><linearGradient id="hgR" gradientUnits="userSpaceOnUse" x1="0" y1="40" x2="0" y2="0"><stop offset="0" stop-color="#ef4444"/><stop offset="1" stop-color="#fecaca"/></linearGradient></defs><path class="track" d="M 0,0 L -44,0 Q -52,0 -52,8 L -52,34"/><path class="core" d="M 0,0 L -44,0 Q -52,0 -52,8 L -52,34"/><path class="halo g" d="M 0,0 L -44,0 Q -52,0 -52,8 L -52,34"/><path class="beam g" d="M 0,0 L -44,0 Q -52,0 -52,8 L -52,34"/><circle cx="0" cy="0" r="3.6" fill="#4ade80"/></svg>
+  <div class="ln node g" style="left:-80px;width:56px"><div class="circ"><svg width="22" height="12" viewBox="0 0 28 16"><rect x="1" y="1" width="23" height="14" rx="3" fill="none" stroke="#4ade80" stroke-width="2"/><rect x="25" y="5.5" width="2.5" height="5" rx="1" fill="#4ade80"/><rect x="3.5" y="3.5" width="18" height="9" rx="1.5" fill="#4ade80"/></svg></div><div class="w">120 W</div><div class="nm">Delta 2</div><div class="p">78.0%</div><div class="t" style="color:var(--g)">1 h 40 min</div></div></div>
+ <div class="lat rt"><svg class="hook" width="64" height="44" viewBox="0 0 64 44" aria-hidden="true"><defs><linearGradient id="hgR2" gradientUnits="userSpaceOnUse" x1="0" y1="40" x2="0" y2="0"><stop offset="0" stop-color="#ef4444"/><stop offset="1" stop-color="#fecaca"/></linearGradient></defs><path class="track" d="M 0,0 L 44,0 Q 52,0 52,8 L 52,34"/><path class="core" d="M 0,0 L 44,0 Q 52,0 52,8 L 52,34"/><path class="halo r" d="M 52,34 L 52,8 Q 52,0 44,0 L 0,0"/><path class="beam r" style="stroke:url(#hgR2)" d="M 52,34 L 52,8 Q 52,0 44,0 L 0,0"/><circle cx="0" cy="0" r="3.6" fill="#f87171"/></svg>
+  <div class="ln node r" style="left:24px;width:56px"><div class="circ"><svg width="22" height="12" viewBox="0 0 28 16"><rect x="1" y="1" width="23" height="14" rx="3" fill="none" stroke="#f87171" stroke-width="2"/><rect x="25" y="5.5" width="2.5" height="5" rx="1" fill="#f87171"/><rect x="3.5" y="3.5" width="18" height="9" rx="1.5" fill="#f87171"/></svg></div><div class="w">60 W</div><div class="nm">Batería</div><div class="p" style="color:#e5ebf0">46.5%</div><div class="t" style="color:var(--r)">3 h 05 min</div></div></div>
+</section>
+
+<div class="wrap bot"><svg width="300" height="130" viewBox="0 0 300 130" aria-hidden="true">
+  <path class="base" d="M 150,8 L 150,55 Q 150,65 140,65 L 85,65 Q 75,65 75,75 L 75,122"/><path class="base" d="M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122"/>
+  <path class="flow r" d="M 150,8 L 150,55 Q 150,65 140,65 L 85,65 Q 75,65 75,75 L 75,122"/><path class="flow r" d="M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122"/><circle cx="150" cy="8" r="3.5" fill="#f87171"/></svg>
+ <div class="row"><div class="node r"><div class="circ">🏠</div><div class="w">150 W</div><div class="dir"></div><div class="nm">CA</div></div>
+ <div class="node r"><div class="circ"><svg width="30" height="30" viewBox="0 0 24 24" role="img" aria-label="USB"><g stroke="#e3e9ef" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M12 19.5V5"/><path d="M12 15.5 7 12.8V10.6"/><path d="M12 12.5 17 10V8.2"/></g><g fill="#e3e9ef"><path d="M12 1.8 9.4 5.6h5.2z"/><circle cx="12" cy="20" r="2.3"/><circle cx="7" cy="9.2" r="1.7"/><rect x="15.4" y="5.4" width="3.2" height="3.2" rx=".6"/></g></svg></div><div class="w">30 W</div><div class="dir"></div><div class="nm">USB</div></div></div></div>
+
+<section id="pCard" class="plant" aria-live="polite" style="background:none;border:0;padding:0;box-shadow:none">
+ <h3 style="display:none"><span>Planta de gas</span><span id="pNow"></span></h3>
+ <div id="pCalc" style="display:none">
+  <div class="verdict" id="pVerdict"><i></i><span id="pTitle"></span></div>
+  <p class="facts" id="pFacts"></p>
+ </div>
+ <div class="stats" id="pStats" style="display:none"><div><span>Ahora</span><b id="stS"></b></div><div><span>A las 21:00</span><b id="stC"></b></div><div><span>Necesitas</span><b id="stB"></b></div></div>
+ <p class="clock" id="gridClock" style="display:none">Sin red hace <b>2 h 14 min</b></p>
+ <div class="sim"><span>Simulación (solo en este mockup)</span><div class="l2"><span id="srcLbl">Simular entrada de CA</span><div class="seg" role="group" aria-labelledby="srcLbl"><button type="button" id="bSun" aria-pressed="true">Solo sol</button><button type="button" id="bRed" aria-pressed="false">Red (calle)</button><button type="button" id="bGas" aria-pressed="false">Planta de gas</button></div></div><label>Sol<input id="rS" type="range" min="0" max="800" step="10" value="340"><output id="oS"></output></label><label>Casa<input id="rC" type="range" min="0" max="1200" step="10" value="180"><output id="oC"></output></label><label class="chk"><input type="checkbox" id="cStale"> Simular sin conexión</label></div>
+</section>
+<script>
+const PCT=62.4,FLOOR=20,CAP=2048,PLANT=1200,NIGHT_LOAD=150,NIGHT_H=10,NOW_H=15; /* demo assumptions: total Wh, plant output W, night load W, night hours, demo clock (15:00) */
+const $=id=>document.getElementById(id),fmt=h=>{const m=Math.round(h*60);return m>=60?Math.floor(m/60)+' h '+(m%60?String(m%60).padStart(2,'0')+' min':''):m+' min'};
+const at=h=>{const d=new Date(Date.now()+h*3600e3);return d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit',hour12:false})};
+function calc(){const sol=+$('rS').value,casa=+$('rC').value,net=sol-casa;$('oS').textContent=sol+' W';$('oC').textContent=casa+' W';
+ const hN=21-NOW_H,proj=Math.min(100,Math.max(0,PCT+net*hN/CAP*100)),req=Math.min(100,FLOOR+NIGHT_LOAD*NIGHT_H/CAP*100),v=$('pVerdict'),n=$('nGas');let cls,title,dir,facts;
+ const sc=$('stC'),sb=$('stB');$('stS').textContent=Math.round(PCT)+'%';sc.textContent=Math.round(proj)+'%';sb.textContent=Math.round(req)+'%';sb.style.color=proj>=req?'var(--g)':'var(--r)';
+ if(proj>=req){cls='ok';title='No es necesaria';dir='No necesaria';facts='Llegas a las 21:00 con <b>'+Math.round(proj)+'%</b>, y para pasar la noche necesitas <b>'+Math.round(req)+'%</b>.'}
+ else{const run=((req-proj)/100*CAP)/Math.max(PLANT+net,1),st=hN-run,fs=x=>fmt(x).replace(' h ','h').replace(' min','m');
+  if(st<=0){cls='bad';title='Enciéndela ya';dir='Encender ya'}else if(st<2){cls='warn';title='Necesaria, enciéndela en '+fmt(st);dir='A las '+at(st)}else{cls='warn';title='Necesaria, enciéndela en '+fmt(st);dir='A las '+at(st)}
+  facts='A las 21:00 llegarías con <b>'+Math.round(proj)+'%</b> y necesitas <b>'+Math.round(req)+'%</b>. Hacen falta ~<b>'+fmt(run)+'</b> de planta'+(st<=0?'.':' (empieza antes de las <b>'+at(st)+'</b>).')}
+ if(mode==='gas'){cls='ok';title='Planta en uso';dir='en uso';facts='La CA que entra viene de la planta de gas.'}
+ else if(mode==='red'){cls='ok';title='No es necesaria';dir='No necesaria';facts='La red de la calle está entregando CA.'}
+ else if(mode==='none'){cls='ok';title='No es necesaria';dir='No necesaria';facts='Está entrando CA. Toca Red o Planta arriba para marcar de dónde viene.'}
+ v.className='verdict '+cls;$('pTitle').textContent=title;$('pFacts').innerHTML=facts;n.classList.remove('ok','warn','bad');n.classList.add(cls);$('gasDir').textContent=dir;$('pNow').textContent='Batería '+PCT+'%';
+ const e=$('etaLine');if(net>=0){e.textContent='Cargando · llena 18:40';e.style.color='var(--g)'}else{e.textContent='Descargando · 20% a las '+at((PCT-FLOOR)/100*CAP/(-net));e.style.color='var(--r)'}}
+let mode='sun';
+function setSrc(v){mode=v;const gas=v==='gas',red=v==='red',sun=v==='sun';$('nGas').classList.toggle('sel',gas);$('nRed').classList.toggle('sel',red);
+ ['bSun','bRed','bGas'].forEach(id=>$(id).setAttribute('aria-pressed',(id==='bSun'&&sun)||(id==='bRed'&&red)||(id==='bGas'&&gas)));
+ /* the plant-needed calculation only applies on solar alone; any AC input hides it */
+ $('gridClock').innerHTML=red?'Red restablecida':'Sin red hace <b>2 h 14 min</b>';
+ 
+ ['nRed','nGas'].forEach(id=>$(id).classList.toggle('tap',!sun));
+ calc()}
+$('cStale').onchange=e=>{document.body.classList.toggle('stale',e.target.checked);$('banner').hidden=!e.target.checked;$('live').setAttribute('aria-label',e.target.checked?'Sin conexión':'Datos en vivo, actualizados ahora')};$('bSun').onclick=()=>{setSrc('sun');calc()};$('bGas').onclick=()=>setSrc('gas');$('bRed').onclick=()=>setSrc('red');$('nRed').onclick=()=>{if(mode==='sun')return;setSrc(mode==='red'?'none':'red');calc()};$('nGas').onclick=()=>{if(mode==='sun')return;setSrc(mode==='gas'?'none':'gas');calc()};$('rS').oninput=$('rC').oninput=calc;calc();setSrc('sun');calc();
+</script>
+</main></div></body></html>

@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "comments": [
+    {
+      "id": "tgxnbime",
+      "file": "04-flow-polished.html",
+      "selector": "body > div > main > div:nth-of-type(1) > div > div:nth-of-type(1) > div:nth-of-type(1) > svg",
+      "excerpt": "",
+      "comment": "tienes que poner esto dentro del circulo",
+      "createdAt": "2026-11-03T18:55:19.861Z",
+      "status": "resolved",
+      "sentAt": "2026-11-03T18:56:04.357Z",
+      "resolvedAt": "2026-11-03T18:57:08.627Z"
+    },
+    {
+      "id": "g3hbsx9i",
+      "file": "04-flow-polished.html",
+      "selector": "body > div > main > section:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1) > svg > rect:nth-of-type(3)",
+      "excerpt": "",
+      "comment": "poner bien las baterias dentro de los circulos aplica para ambos",
+      "createdAt": "2026-11-03T18:55:44.691Z",
+      "status": "resolved",
+      "sentAt": "2026-11-03T18:56:04.357Z",
+      "resolvedAt": "2026-11-03T18:57:08.627Z"
+    },
+    {
+      "id": "ft4vu22e",
+      "file": "04-flow-polished.html",
+      "selector": "body > div > main > div:nth-of-type(2) > div > div:nth-of-type(2) > div:nth-of-type(1) > svg",
+      "excerpt": "",
+      "comment": "tambien arreglar",
+      "createdAt": "2026-11-03T18:56:02.647Z",
+      "status": "resolved",
+      "sentAt": "2026-11-03T18:56:04.357Z",
+      "resolvedAt": "2026-11-03T18:57:08.627Z"
+    },
+    {
+      "id": "lhobxyif",
+      "file": "04-flow-polished.html",
+      "selector": "body > div > main > div:nth-of-type(1) > div",
+      "excerpt": "0 W hace 2 h CA ☀️ 340 W SOLAR",
+      "comment": "aqui poner un tercero que seria la planta de gas entonces habria qeu decirle a la aplicacion si es corriente de la calle o planta de gas",
+      "createdAt": "2026-11-03T18:58:45.590Z",
+      "status": "resolved",
+      "sentAt": "2026-11-03T18:58:50.879Z",
+      "resolvedAt": "2026-11-03T18:59:17.503Z"
+    },
+    {
+      "id": "m5lm6vxd",
+      "file": "04-flow-polished.html",
+      "selector": "body > div > main > div:nth-of-type(2) > div > div:nth-of-type(2) > div:nth-of-type(1) > svg",
+      "excerpt": "",
+      "comment": "mejora este logo",
+      "createdAt": "2026-11-03T19:03:10.403Z",
+      "status": "resolved",
+      "sentAt": "2026-11-03T19:03:12.256Z",
+      "resolvedAt": "2026-11-03T19:03:23.463Z"
+    },
+    {
+      "id": "h38a6mv6",
+      "file": "04-flow-polished.html",
+      "selector": "body > div > main > section:nth-of-type(2) > div:nth-of-type(3) > svg",
+      "excerpt": "",
+      "comment": "mejora estos flujos dentro de lo posible tanto este como el de la otra bateria",
+      "createdAt": "2026-11-03T19:06:52.863Z",
+      "status": "resolved",
+      "sentAt": "2026-11-03T19:08:32.025Z",
+      "resolvedAt": "2026-11-03T19:08:55.584Z"
+    },
+    {
+      "id": "urizkn1w",
+      "file": "04-flow-polished.html",
+      "selector": "body > div > main > div:nth-of-type(3)",
+      "excerpt": "Actualizado ahora",
+      "comment": "busca otra forma de notificar esto",
+      "createdAt": "2026-11-03T19:10:47.149Z",
+      "status": "resolved",
+      "sentAt": "2026-11-03T19:10:48.516Z",
+      "resolvedAt": "2026-11-03T19:12:07.675Z"
+    },
+    {
+      "id": "iwn1s2zu",
+      "file": "04-flow-polished.html",
+      "selector": "#nRed > div:nth-of-type(1) > svg",
+      "excerpt": "",
+      "comment": "mejora este o cambialo por uno que pueda significar lo mismo es la red de la calle",
+      "createdAt": "2026-11-03T19:13:54.637Z",
+      "status": "resolved",
+      "sentAt": "2026-11-03T19:14:04.177Z",
+      "resolvedAt": "2026-11-03T19:15:18.306Z"
+    },
+    {
+      "id": "gfcbarxn",
+      "file": "04-flow-polished.html",
+      "selector": "body > div > main > section:nth-of-type(1) > div:nth-of-type(2)",
+      "excerpt": "Cargando por ☀️",
+      "comment": "esto actualmente cumple alguna funcion necesaria ?",
+      "createdAt": "2026-11-03T19:23:42.202Z",
+      "status": "resolved",
+      "sentAt": "2026-11-03T19:23:44.145Z",
+      "resolvedAt": "2026-11-03T19:25:53.081Z"
+    },
+    {
+      "id": "ozgzz7g8",
+      "file": "04-flow-polished.html",
+      "selector": "#chgState",
+      "excerpt": "Cargando",
+      "comment": "ahora esto q hace?",
+      "createdAt": "2026-11-03T19:27:17.183Z",
+      "status": "resolved",
+      "sentAt": "2026-11-03T19:27:18.472Z",
+      "resolvedAt": "2026-11-03T19:28:06.516Z"
+    },
+    {
+      "id": "p3nhki0f",
+      "file": "04-flow-polished.html",
+      "selector": "body > div > main > div:nth-of-type(2) > svg",
+      "excerpt": "",
+      "comment": "aqui se esta poniendo mas oscuro como que se superponen",
+      "createdAt": "2026-11-03T19:59:14.771Z",
+      "status": "resolved",
+      "sentAt": "2026-11-03T19:59:17.408Z",
+      "resolvedAt": "2026-11-03T20:01:56.558Z"
+    },
+    {
+      "id": "n375065f",
+      "file": "04-flow-polished.html",
+      "selector": "body > div > main > section:nth-of-type(2) > div:nth-of-type(3) > svg",
+      "excerpt": "",
+      "comment": "en la mobile se ve mas gris que rojo o verde",
+      "createdAt": "2026-11-03T20:09:38.173Z",
+      "status": "resolved",
+      "sentAt": "2026-11-03T20:09:39.190Z",
+      "resolvedAt": "2026-11-03T20:11:19.883Z"
+    }
+  ]
+}
