@@ -1,17 +1,16 @@
 import { Animated, StyleSheet } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../../theme';
-
-// react-native-svg no trae Animated.createAnimatedComponent aplicado a Path
-// por defecto; se arma acá porque no hay reanimated como dependencia (ver
-// package.json) — se anima strokeDashoffset con la Animated API nativa de RN.
-const AnimatedPath = Animated.createAnimatedComponent(Path);
+import { FlowPath } from '../FlowPath';
 
 // Conector "hook" lateral: sale del anillo (borde derecho o izquierdo, punto
-// medio vertical), va horizontal y dobla 90° con esquina redondeada — exacto
-// mismo `d` que .lateral-overlay/.lateral-overlay-left en
-// ecoflow_telegram_monitor.py (izquierda = mismas coordenadas en x negativo).
-// KEEP IN SYNC WITH ecoflow_telegram_monitor.py .flow-connectors.lateral.
+// medio vertical), va horizontal y dobla 90° con esquina redondeada hacia el
+// nodo. Carga = el flujo viaja anillo -> nodo; descarga = nodo -> anillo
+// (path invertido). KEEP IN SYNC WITH ecoflow_telegram_monitor.py
+// .flow-connectors.lateral.
+const REACH = 44; // tramo horizontal desde el borde del anillo
+const DROP = 34; // tramo vertical hasta el nodo (queda tapado por su círculo)
+
 export function LateralHook({
   side,
   charging,
@@ -24,46 +23,27 @@ export function LateralHook({
   dashOffset: Animated.AnimatedInterpolation<string | number>;
 }) {
   // El lado izquierdo usa coordenadas X negativas (el gancho sale hacia la
-  // izquierda del anillo). Antes ambos lados compartían el mismo viewBox
-  // "0 0 64 40" y dependían de overflow:'visible' para que el contenido
-  // negativo "se viera" fuera de los límites del box — funciona en web
-  // (react-native-web) pero no se puede confiar en eso en nativo. Ahora el
-  // viewBox y la posición del propio Svg coinciden exactamente con el rango
-  // de coordenadas que cada lado realmente usa, sin depender de overflow.
-  const chargePath = side === 'right' ? 'M 0,0 L 54,0 Q 62,0 62,8 L 62,38' : 'M 0,0 L -54,0 Q -62,0 -62,8 L -62,38';
-  const dischargePath = side === 'right' ? 'M 62,38 L 62,8 Q 62,0 54,0 L 0,0' : 'M -62,38 L -62,8 Q -62,0 -54,0 L 0,0';
-  const viewBox = side === 'right' ? '0 0 64 40' : '-64 0 64 40';
+  // izquierda del anillo): el viewBox y la posición del propio Svg coinciden
+  // con el rango de coordenadas que cada lado realmente usa, sin depender de
+  // overflow (que en nativo no es confiable).
+  const sx = side === 'right' ? 1 : -1;
+  const out = `M 0,0 L ${sx * REACH},0 Q ${sx * (REACH + 8)},0 ${sx * (REACH + 8)},8 L ${sx * (REACH + 8)},${DROP}`;
+  const back = `M ${sx * (REACH + 8)},${DROP} L ${sx * (REACH + 8)},8 Q ${sx * (REACH + 8)},0 ${sx * REACH},0 L 0,0`;
+  const active = charging || discharging;
+  const color = discharging ? COLORS.red : COLORS.green;
+  const viewBox = side === 'right' ? '0 0 64 44' : '-64 0 64 44';
   const svgStyle = side === 'right' ? styles.lateralSvg : [styles.lateralSvg, styles.lateralSvgLeft];
   return (
-    <Svg width={64} height={40} viewBox={viewBox} style={svgStyle}>
-      <Path d={chargePath} stroke="#232c36" strokeWidth={2} fill="none" />
-      <AnimatedPath
-        d={chargePath}
-        stroke={COLORS.green}
-        strokeWidth={2.5}
-        strokeLinecap="butt"
-        strokeDasharray="3,4"
-        strokeDashoffset={dashOffset}
-        fill="none"
-        opacity={charging ? 1 : 0}
-      />
-      <AnimatedPath
-        d={dischargePath}
-        stroke={COLORS.red}
-        strokeWidth={2.5}
-        strokeLinecap="butt"
-        strokeDasharray="3,4"
-        strokeDashoffset={dashOffset}
-        fill="none"
-        opacity={discharging ? 1 : 0}
-      />
+    <Svg width={64} height={44} viewBox={viewBox} style={svgStyle}>
+      <FlowPath d={discharging ? back : out} color={color} active={active} dashOffset={dashOffset} dash="0.1,7" width={3} trackWidth={4} />
+      <Circle cx={0} cy={0} r={3.6} fill={active ? color : COLORS.track} />
     </Svg>
   );
 }
 
 const styles = StyleSheet.create({
   lateralSvg: { overflow: 'visible' },
-  // Con viewBox "-64 0 64 40" el contenido (x entre -62 y 0) queda pegado
+  // Con viewBox "-64 0 64 44" el contenido (x entre -60 y 0) queda pegado
   // al borde DERECHO de la caja renderizada del Svg — sin mover la caja,
   // el gancho se vería 64px más a la derecha de lo que corresponde. Se
   // corre la caja misma 64px a la izquierda para compensar.

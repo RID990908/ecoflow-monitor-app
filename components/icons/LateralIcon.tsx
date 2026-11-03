@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { FlowState } from '../../types';
-import { COLORS } from '../../theme';
+import { COLORS, flowBg, flowNodeStyle } from '../../theme';
 import { BatteryIcon } from './BatteryIcon';
 
 // Nodo lateral compacto (hook que sale del anillo hacia Delta 2/Batería
@@ -27,11 +27,10 @@ export function LateralIcon({
   pct?: number | null;
   remain?: { charging: boolean; text: string } | null;
 }) {
-  const bg = state === 'charging' ? COLORS.chargingBg : state === 'discharging' ? COLORS.dischargingBg : '#1c232b';
   const remainColor = remain ? (remain.charging ? COLORS.green : COLORS.red) : undefined;
   return (
     <View style={side === 'right' ? styles.lateralIconRight : styles.lateralIconLeft}>
-      <View style={[styles.lateralIconCircle, { backgroundColor: bg }]}>
+      <View style={[styles.lateralIconCircle, { backgroundColor: flowBg(state) }, flowNodeStyle(state)]}>
         <BatteryIcon state={state} size={17} />
       </View>
       <Text style={styles.lateralIconWatts}>{watts}</Text>
@@ -43,11 +42,11 @@ export function LateralIcon({
 }
 
 const styles = StyleSheet.create({
-  lateralIconRight: { position: 'absolute', left: 34, top: 18, width: 56, alignItems: 'center' },
-  lateralIconLeft: { position: 'absolute', left: -90, top: 18, width: 56, alignItems: 'center' },
-  lateralIconCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  lateralIconWatts: { fontSize: 11, color: COLORS.dim, marginTop: 3, fontVariant: ['tabular-nums'] },
-  lateralIconName: { fontSize: 9, color: COLORS.faint, marginTop: 2, letterSpacing: 0.3, textTransform: 'uppercase' },
+  lateralIconRight: { position: 'absolute', left: 24, top: 16, width: 56, alignItems: 'center' },
+  lateralIconLeft: { position: 'absolute', left: -80, top: 16, width: 56, alignItems: 'center' },
+  lateralIconCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  lateralIconWatts: { fontSize: 11, color: COLORS.dim, marginTop: 4, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  lateralIconName: { fontSize: 9, color: COLORS.faint, marginTop: 2, letterSpacing: 0.8, fontWeight: '600', textTransform: 'uppercase' },
   lateralIconPct: { fontSize: 12, fontWeight: '700', color: '#e5e7eb', marginTop: 3, fontVariant: ['tabular-nums'] },
   lateralIconRemain: { fontSize: 10, fontWeight: '600', marginTop: 1, fontVariant: ['tabular-nums'] },
 });
