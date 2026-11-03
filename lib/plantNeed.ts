@@ -99,21 +99,17 @@ export function plantTone(kind: PlantNeed['kind']): PlantTone {
 }
 
 // Verdict headline shown in the plant card.
-export function plantTitle(need: PlantNeed): string {
-  const h = need.startInHours ?? 0;
+export function plantTitle(need: PlantNeed, nowMs: number): string {
   if (need.kind === 'ok') return 'No es necesaria';
   if (need.kind === 'night') return 'Sin planta esta noche';
   if (need.kind === 'now') return 'Enciéndela ya';
-  if (need.kind === 'soon') return `Enciéndela en ${formatHours(h)}`;
-  return `Necesaria, enciéndela en ${formatHours(h)}`;
+  return `Enciéndela a las ${clockIn(need.startInHours ?? 0, nowMs)}`;
 }
 
 // Short verdict for the Planta node label.
-export function plantNodeLabel(need: PlantNeed): string {
-  const h = need.startInHours ?? 0;
+export function plantNodeLabel(need: PlantNeed, nowMs: number): string {
   if (need.kind === 'ok') return 'No necesaria';
   if (need.kind === 'night') return 'Pasadas las 21h';
   if (need.kind === 'now') return 'Encender ya';
-  if (need.kind === 'soon') return `Encender en ${formatHoursShort(h)}`;
-  return `En ${formatHoursShort(h)}`;
+  return `A las ${clockIn(need.startInHours ?? 0, nowMs)}`;
 }

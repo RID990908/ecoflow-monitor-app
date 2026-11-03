@@ -52,7 +52,7 @@ export function PlantCard({
         ? 'La red de la calle está entregando CA.'
         : 'Está entrando CA. Toca Red o Planta arriba para marcar de dónde viene.';
   } else if (need.kind === 'ok') {
-    title = plantTitle(need);
+    title = plantTitle(need, now);
     tone = PLANT_TONE_COLOR[plantTone(need.kind)];
     reason = (
       <>
@@ -62,7 +62,7 @@ export function PlantCard({
       </>
     );
   } else if (need.kind === 'night') {
-    title = plantTitle(need);
+    title = plantTitle(need, now);
     tone = PLANT_TONE_COLOR[plantTone(need.kind)];
     reason = (
       <>
@@ -72,15 +72,14 @@ export function PlantCard({
       </>
     );
   } else {
-    title = plantTitle(need);
+    title = plantTitle(need, now);
     tone = PLANT_TONE_COLOR[plantTone(need.kind)];
     reason = (
       <>
         {need.hoursToNight > 0 ? 'A' : 'Son más de'} las {nightText} {need.hoursToNight > 0 ? 'llegarías con' : 'y tienes'}{' '}
         <Text style={styles.strong}>{pctText(need.projectedPct)}</Text>, que a ~{NIGHT_LOAD_W} W solo alcanzan hasta las{' '}
         <Text style={styles.strong}>{lastsClock}</Text> y el sol vuelve hacia las {morningText}. Hacen falta ~
-        <Text style={styles.strong}>{formatHours(need.runHours ?? 0)}</Text> de planta
-        {need.kind === 'now' ? '.' : <> (empieza antes de las <Text style={styles.strong}>{clockIn(need.startInHours ?? 0, now)}</Text>).</>}
+        <Text style={styles.strong}>{formatHours(need.runHours ?? 0)}</Text> de planta.
       </>
     );
   }

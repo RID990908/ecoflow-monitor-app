@@ -423,7 +423,7 @@ export default function App() {
                     icon={<GeneratorIcon />}
                     state={plantActive ? 'charging' : 'neutral'}
                     watts={`${plantActive ? status.ac_w ?? 0 : 0} W`}
-                    dirLabel={plantActive ? 'en uso' : plantNodeLabel(nodeNeed)}
+                    dirLabel={plantActive ? 'en uso' : plantNodeLabel(nodeNeed, now)}
                     dirColor={plantActive ? undefined : PLANT_TONE_COLOR[plantTone(nodeNeed.kind)]}
                     onPress={hasAc ? onPlantPress : undefined}
                     selected={plantActive}
