@@ -50,6 +50,20 @@
       "tradeoff": "Seven filled-glyph generator ideas (A-G); E (wheeled) with bolt cut-out plus a flame badge chosen and applied to 04",
       "width": 1000,
       "height": 1000
+    },
+    {
+      "file": "08-usb-options.html",
+      "title": "USB-C icon options",
+      "tradeoff": "Five USB-C icon ideas (A-E) for the USB output node; B (front port) chosen and applied to the app",
+      "width": 420,
+      "height": 560
+    },
+    {
+      "file": "09-diagram-backgrounds.html",
+      "title": "Diagram backgrounds",
+      "tradeoff": "Five background ideas (A-E) for the card behind the power-flow diagram: blueprint grid, aurora, concentric waves, circuit, honeycomb. All static and cheap on native (gradients/patterns, no blur)",
+      "width": 1130,
+      "height": 1250
     }
   ]
 }
