@@ -524,6 +524,8 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
+      <View style={styles.screen}>
+      <DiagramBackdrop />
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" />
         <ScrollView
@@ -533,20 +535,19 @@ export default function App() {
           {stale ? <StatusBanner minutesAgo={minutesAgo} /> : null}
           {notReadyCard}
           <View style={[styles.body, wide && styles.bodyWide]}>
-          <View style={[styles.diagram, wide && styles.diagramWide, stale && styles.diagramStale]}>
-            {status && status.ready ? <DiagramBackdrop /> : null}
-            {centerFlow}
-          </View>
+          <View style={[styles.diagram, wide && styles.diagramWide, stale && styles.diagramStale]}>{centerFlow}</View>
           </View>
         </ScrollView>
 
       </SafeAreaView>
+      </View>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
+  screen: { flex: 1, backgroundColor: COLORS.bg },
+  root: { flex: 1 },
   scroll: { padding: 20, paddingTop: 24, alignItems: 'center', paddingBottom: 50 },
   card: {
     backgroundColor: COLORS.card, borderColor: COLORS.border, borderWidth: 1, borderRadius: 14,
@@ -590,20 +591,7 @@ const styles = StyleSheet.create({
 
   body: { width: '100%', alignItems: 'center' },
   bodyWide: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 48 },
-  diagramWide: { width: 420, alignSelf: 'flex-start', marginHorizontal: 0 },
-  // Card behind the whole diagram. The lateral nodes reach ~187px each side of
-  // the ring's center, so on phones the card bleeds 16px into the screen padding.
-  diagram: {
-    alignSelf: 'stretch',
-    alignItems: 'center',
-    marginHorizontal: -16,
-    paddingVertical: 22,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 28,
-    paddingHorizontal: 4,
-    boxShadow: '0 12px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05)',
-  },
+  diagramWide: { width: 420 },
+  diagram: { width: '100%', alignItems: 'center' },
   diagramStale: { opacity: 0.45 },
 });
