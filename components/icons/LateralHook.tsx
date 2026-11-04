@@ -1,5 +1,5 @@
 import { Animated, StyleSheet } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg from 'react-native-svg';
 import { COLORS } from '../../theme';
 import { FlowPath } from '../FlowPath';
 
@@ -36,13 +36,12 @@ export function LateralHook({
   const color = discharging ? COLORS.red : COLORS.green;
   // PAD of empty room on every side: native SVG clips anything outside its box,
   // and the horizontal run sits at y=0, so without it the top half of the
-  // stroke and halo (and half of the ring-edge dot) were cut off.
+  // stroke and halo were cut off.
   const viewBox = side === 'right' ? `${-PAD} ${-PAD} ${W} ${H}` : `${-64 - PAD} ${-PAD} ${W} ${H}`;
   const svgStyle = side === 'right' ? styles.lateralSvg : [styles.lateralSvg, styles.lateralSvgLeft];
   return (
     <Svg width={W} height={H} viewBox={viewBox} style={svgStyle}>
       <FlowPath d={discharging ? back : out} color={color} active={active} dashOffset={dashOffset} dash="6,8" width={2.5} trackWidth={3} />
-      <Circle cx={0} cy={0} r={3.6} fill={active ? color : COLORS.track} />
     </Svg>
   );
 }

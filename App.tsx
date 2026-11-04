@@ -17,6 +17,7 @@ import * as Updates from 'expo-updates';
 
 import type { FlowState } from './types';
 import { COLORS, PLANT_TONE_COLOR } from './theme';
+import { DiagramBackdrop } from './components/DiagramBackdrop';
 import { FlowPath } from './components/FlowPath';
 import { LiveDot } from './components/LiveDot';
 import { StatusBanner } from './components/StatusBanner';
@@ -41,16 +42,16 @@ import {
 // Paths de los colectores (viewBox 0 0 300 130). Los de arriba van nodo -> hub
 // (entrada); los de abajo, hub -> nodo (salida), para que el dash viaje en el
 // sentido real del flujo. KEEP IN SYNC con ecoflow_telegram_monitor.py.
-const TOP_GRID = 'M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75 L 150,122';
-const TOP_PLANT = 'M 150,8 L 150,122';
-const TOP_SOLAR = 'M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75 L 150,122';
+const TOP_GRID = 'M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75 L 150,130';
+const TOP_PLANT = 'M 150,8 L 150,130';
+const TOP_SOLAR = 'M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75 L 150,130';
 // Track-only variants: the shared trunk is drawn once so idle tracks never
 // paint over an active beam.
 const TOP_GRID_TRACK = 'M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75';
 const TOP_SOLAR_TRACK = 'M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75';
 const BOTTOM_USB_TRACK = 'M 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122';
-const BOTTOM_AC = 'M 150,8 L 150,55 Q 150,65 140,65 L 85,65 Q 75,65 75,75 L 75,122';
-const BOTTOM_USB = 'M 150,8 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122';
+const BOTTOM_AC = 'M 150,0 L 150,55 Q 150,65 140,65 L 85,65 Q 75,65 75,75 L 75,122';
+const BOTTOM_USB = 'M 150,0 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122';
 
 // Diámetro del anillo principal: 224 deja espacio a los nodos laterales dentro
 // de un ancho de 390 (con 240 el nodo derecho se salía ~7px de la pantalla).
@@ -446,12 +447,6 @@ export default function App() {
                   <FlowPath d={TOP_GRID} color={COLORS.green} active={redActive} dashOffset={flowDashOffset} layer="beam" />
                   <FlowPath d={TOP_PLANT} color={COLORS.green} active={plantActive} dashOffset={flowDashOffset} layer="beam" />
                   <FlowPath d={TOP_SOLAR} color={COLORS.green} active={solarActive} dashOffset={flowDashOffset} layer="beam" />
-                  <Circle
-                    cx={150}
-                    cy={122}
-                    r={3.5}
-                    fill={redActive || plantActive || solarActive ? COLORS.green : COLORS.track}
-                  />
                 </Svg>
               </View>
 
@@ -517,11 +512,10 @@ export default function App() {
                   <FlowPath d={BOTTOM_USB_TRACK} color={COLORS.red} active={false} dashOffset={flowDashOffset} layer="track" />
                   <FlowPath d={BOTTOM_AC} color={COLORS.red} active={acOutActive} dashOffset={flowDashOffset} layer="beam" />
                   <FlowPath d={BOTTOM_USB} color={COLORS.red} active={usbActive} dashOffset={flowDashOffset} layer="beam" />
-                  <Circle cx={150} cy={8} r={3.5} fill={acOutActive || usbActive ? COLORS.red : COLORS.track} />
                 </Svg>
                 <View style={styles.iconsRowBottom}>
                   <IconCircle emoji="🏠" state={acOutActive ? 'discharging' : 'neutral'} watts={`${status.ac_out_w ?? 0} W`} name="CA" />
-                  <IconCircle icon={<UsbIcon color={COLORS.dim} />} state={usbActive ? 'discharging' : 'neutral'} watts={`${status.usb_out_w ?? 0} W`} name="USB" />
+                  <IconCircle icon={<UsbIcon />} state={usbActive ? 'discharging' : 'neutral'} watts={`${status.usb_out_w ?? 0} W`} name="USB" />
                 </View>
               </View>
 
@@ -539,7 +533,10 @@ export default function App() {
           {stale ? <StatusBanner minutesAgo={minutesAgo} /> : null}
           {notReadyCard}
           <View style={[styles.body, wide && styles.bodyWide]}>
-          <View style={[styles.diagram, wide && styles.diagramWide, stale && styles.diagramStale]}>{centerFlow}</View>
+          <View style={[styles.diagram, wide && styles.diagramWide, stale && styles.diagramStale]}>
+            {status && status.ready ? <DiagramBackdrop /> : null}
+            {centerFlow}
+          </View>
           </View>
         </ScrollView>
 
@@ -570,7 +567,7 @@ const styles = StyleSheet.create({
   flowConnectors: { position: 'absolute', top: 0, left: 0 },
   iconsRowBottom: { width: 300, maxWidth: 300, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-around' },
 
-  ringWrap: { width: RING, height: RING, marginTop: 6, marginBottom: 0, alignItems: 'center', justifyContent: 'center' },
+  ringWrap: { width: RING, height: RING, marginTop: 0, marginBottom: 0, alignItems: 'center', justifyContent: 'center' },
   ringGlow: { position: 'absolute' },
   ringInner: {
     width: RING - 34, height: RING - 34, borderRadius: (RING - 34) / 2, backgroundColor: COLORS.disc,
@@ -593,7 +590,20 @@ const styles = StyleSheet.create({
 
   body: { width: '100%', alignItems: 'center' },
   bodyWide: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 48 },
-  diagramWide: { width: 420 },
-  diagram: { width: '100%', alignItems: 'center' },
+  diagramWide: { width: 420, alignSelf: 'flex-start', marginHorizontal: 0 },
+  // Card behind the whole diagram. The lateral nodes reach ~187px each side of
+  // the ring's center, so on phones the card bleeds 16px into the screen padding.
+  diagram: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    marginHorizontal: -16,
+    paddingVertical: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 28,
+    paddingHorizontal: 4,
+    boxShadow: '0 12px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05)',
+  },
   diagramStale: { opacity: 0.45 },
 });

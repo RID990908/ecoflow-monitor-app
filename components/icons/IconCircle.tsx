@@ -25,19 +25,20 @@ export function IconCircle({
   selected?: boolean;
 }) {
   const labelColor = dirColor ?? flowColor(state);
-  const Wrapper = onPress ? Pressable : View;
-  const wrapperProps = onPress
-    ? { onPress, accessibilityRole: 'button' as const, accessibilityLabel: name, accessibilityState: { selected: !!selected } }
+  // Only the sphere is tappable; the texts around it are plain labels.
+  const Sphere = onPress ? Pressable : View;
+  const sphereProps = onPress
+    ? { onPress, hitSlop: 6, accessibilityRole: 'button' as const, accessibilityLabel: name, accessibilityState: { selected: !!selected } }
     : {};
   return (
-    <Wrapper style={styles.iconItem} {...wrapperProps}>
-      <View style={[styles.iconCircle, { backgroundColor: flowBg(state) }, flowNodeStyle(state)]}>
+    <View style={styles.iconItem}>
+      <Sphere style={[styles.iconCircle, { backgroundColor: flowBg(state) }, flowNodeStyle(state)]} {...sphereProps}>
         {icon ?? <Text style={{ fontSize: 23 }}>{emoji}</Text>}
-      </View>
+      </Sphere>
       <Text style={[styles.iconWatts, state !== 'neutral' && styles.iconWattsActive]}>{watts}</Text>
       {dirLabel ? <Text style={[styles.iconDir, { color: labelColor }]}>{dirLabel}</Text> : null}
-      <Text style={[styles.iconName, onPress && styles.iconNameTappable]}>{name}</Text>
-    </Wrapper>
+      <Text style={styles.iconName}>{name}</Text>
+    </View>
   );
 }
 
@@ -49,6 +50,5 @@ const styles = StyleSheet.create({
   iconWatts: { fontSize: 13, color: COLORS.dim, marginTop: 6, fontWeight: '600', fontVariant: ['tabular-nums'] },
   iconWattsActive: { color: COLORS.text },
   iconDir: { fontSize: 11, marginTop: 1, color: COLORS.dim, height: 14 },
-  iconNameTappable: { color: COLORS.dim, textDecorationLine: 'underline' },
   iconName: { fontSize: 10, color: COLORS.faint, marginTop: 2, letterSpacing: 0.8, fontWeight: '600', textTransform: 'uppercase' },
 });
