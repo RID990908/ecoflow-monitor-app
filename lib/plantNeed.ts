@@ -3,7 +3,7 @@
 // The plant is needed when the battery is projected to reach the reserve
 // threshold (the "15% a las HH:MM" line shown in the ring) before this hour
 // of today (local, 24 h).
-export const PLANT_CUTOFF_HOUR = 23;
+const PLANT_CUTOFF_HOUR = 23;
 
 type PlantNeededInput = {
   percent: number;
