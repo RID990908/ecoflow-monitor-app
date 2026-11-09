@@ -16,13 +16,12 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import * as Updates from 'expo-updates';
 
 import type { FlowState } from './types';
-import { COLORS, PLANT_TONE_COLOR } from './theme';
+import { COLORS } from './theme';
 import { DiagramBackdrop } from './components/DiagramBackdrop';
 import { FlowPath } from './components/FlowPath';
 import { LiveDot } from './components/LiveDot';
 import { StatusBanner } from './components/StatusBanner';
 import { GridTowerIcon } from './components/icons/GridTowerIcon';
-import { GeneratorIcon } from './components/icons/GeneratorIcon';
 import { UsbIcon } from './components/icons/UsbIcon';
 import { ArrowDownIcon } from './components/icons/ArrowDownIcon';
 import { ArrowUpIcon } from './components/icons/ArrowUpIcon';
@@ -36,15 +35,12 @@ import {
   PLANT_OUTPUT_W,
   clockAt,
   plantNeed,
-  plantNodeLabel,
-  plantTone,
 } from './lib/plantNeed';
 
 // Paths de los colectores (viewBox 0 0 300 130). Los de arriba van nodo -> hub
 // (entrada); los de abajo, hub -> nodo (salida), para que el dash viaje en el
 // sentido real del flujo. KEEP IN SYNC con ecoflow_telegram_monitor.py.
 const TOP_GRID = 'M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75 L 150,130';
-const TOP_PLANT = 'M 150,8 L 150,130';
 const TOP_SOLAR = 'M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75 L 150,130';
 // Track-only variants: the shared trunk is drawn once so idle tracks never
 // paint over an active beam.
@@ -135,7 +131,8 @@ export default function App() {
   const hasAc = !!status?.has_ac;
   const effectiveOrigin: AcOrigin = gridOut && hasAc ? 'plant' : acOrigin;
   const redActive = hasAc && effectiveOrigin !== 'plant';
-  const plantActive = hasAc && effectiveOrigin === 'plant';
+  // No Planta node anymore: AC not confirmed as grid counts as the plant running.
+  const plantRunning = hasAc && effectiveOrigin !== 'grid';
 
   const serverOrigin = status?.ac_origin;
   const serverGridOut = status?.grid_out;
@@ -162,9 +159,6 @@ export default function App() {
   const onRedPress = useCallback(() => {
     markOrigin(gridOut || acOrigin !== 'grid' ? 'grid' : 'unclassified');
   }, [markOrigin, gridOut, acOrigin]);
-  const onPlantPress = useCallback(() => {
-    markOrigin(acOrigin === 'plant' ? 'unclassified' : 'plant');
-  }, [markOrigin, acOrigin]);
   const solarActive = (status?.pv_w ?? 0) > 0;
   const acOutActive = (status?.ac_out_w ?? 0) > 0;
   const usbActive = (status?.usb_out_w ?? 0) > 0;
@@ -189,7 +183,7 @@ export default function App() {
   const delta2W = delta2Discharging ? delta2OutW : delta2InW;
   const delta2State: FlowState = delta2Discharging ? 'discharging' : delta2Charging ? 'charging' : 'neutral';
 
-  const mainFlowActive = redActive || plantActive || solarActive || acOutActive || usbActive;
+  const mainFlowActive = redActive || solarActive || acOutActive || usbActive;
   const lateralFlowActive = delta2Charging || delta2Discharging || lateralCharging || lateralDischarging;
 
   // Offset animado compartido para el "flujo" de las líneas conectoras
@@ -423,6 +417,7 @@ export default function App() {
                   {/* The dirLabel slot shows "hace Xh"/"sin registro" while
                       there is no AC, and the unclassified hint while the
                       user has not picked an origin. */}
+                  <View style={styles.topNode}>
                   <IconCircle
                     icon={<GridTowerIcon />}
                     state={redActive ? 'charging' : 'neutral'}
@@ -441,24 +436,15 @@ export default function App() {
                     selected={redActive && effectiveOrigin === 'grid'}
                     name="Red"
                   />
-                  <IconCircle
-                    icon={<GeneratorIcon />}
-                    state={plantActive ? 'charging' : 'neutral'}
-                    watts={`${plantActive ? status.ac_w ?? 0 : 0} W`}
-                    dirLabel={plantActive ? 'en uso' : plantNodeLabel(nodeNeed, now)}
-                    dirColor={plantActive ? undefined : PLANT_TONE_COLOR[plantTone(nodeNeed.kind)]}
-                    onPress={hasAc ? onPlantPress : undefined}
-                    selected={plantActive}
-                    name="Planta"
-                  />
-                  <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
+                  </View>
+                  <View style={styles.topNode}>
+                    <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
+                  </View>
                 </View>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectorsTop}>
                   <FlowPath d={TOP_GRID_TRACK} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
                   <FlowPath d={TOP_SOLAR_TRACK} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
-                  <FlowPath d={TOP_PLANT} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
                   <FlowPath d={TOP_GRID} color={COLORS.green} active={redActive} dashOffset={flowDashOffset} layer="beam" />
-                  <FlowPath d={TOP_PLANT} color={COLORS.green} active={plantActive} dashOffset={flowDashOffset} layer="beam" />
                   <FlowPath d={TOP_SOLAR} color={COLORS.green} active={solarActive} dashOffset={flowDashOffset} layer="beam" />
                 </Svg>
               </View>
@@ -484,7 +470,7 @@ export default function App() {
                 </Svg>
                 <PercentRing pct={pct} color={ringColor} />
                 <View style={styles.ringInner}>
-                  <LiveDot live={!stale} plantNeeded={nodeNeed.kind !== 'ok' && nodeNeed.kind !== 'night'} />
+                  <LiveDot live={!stale} plantNeeded={plantRunning || (nodeNeed.kind !== 'ok' && nodeNeed.kind !== 'night')} />
                   <Text style={styles.pct}>{status.percent != null ? status.percent.toFixed(1) : '--'}%</Text>
                   <Text style={styles.pctSubLabel}>{batteryFull ? 'Batería llena' : 'Tiempo restante'}</Text>
                   {batteryFull ? null : <Text style={styles.pctSubDur}>{status.remain_duration || '--'}</Text>}
@@ -575,7 +561,9 @@ const styles = StyleSheet.create({
   ioValue: { fontSize: 24, fontWeight: '700', marginTop: 3, color: COLORS.text, fontVariant: ['tabular-nums'] },
 
   flowTopWrap: { width: 300, maxWidth: '100%', alignSelf: 'center', paddingBottom: 122 },
-  iconsRowTop: { width: 300, maxWidth: 300, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-around' },
+  // Two 100px columns centered at x=50 / 250 so they line up with TOP_GRID / TOP_SOLAR.
+  iconsRowTop: { width: 300, maxWidth: 300, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  topNode: { width: 100, alignItems: 'center' },
   flowConnectorsTop: { position: 'absolute', left: 0, bottom: 0 },
   flowBottomWrap: { width: 300, maxWidth: '100%', alignSelf: 'center', paddingTop: 122 },
   flowConnectors: { position: 'absolute', top: 0, left: 0 },
