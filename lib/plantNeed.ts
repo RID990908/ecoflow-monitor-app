@@ -9,6 +9,11 @@ export const PLANT_OUTPUT_W = 1200;
 export const NIGHT_START_HOUR = 21;
 // Hours the night lasts (until the sun is back), used to size the reserve.
 export const NIGHT_HOURS = 10;
+// The plant is never started before this hour of day (local, 24 h).
+export const PLANT_EARLIEST_HOUR = 9;
+// Shortest run worth starting the plant for, in hours: a shorter gap is
+// covered by running it this long, ending at NIGHT_START_HOUR.
+export const PLANT_MIN_RUN_HOURS = 1;
 // Assumed house load overnight, in W. Today's reading is too noisy to size it.
 export const NIGHT_LOAD_W = 150;
 
@@ -64,13 +69,17 @@ export function plantNeed({ percent, floorPct, pvW, outW, capacityWh, plantW, no
 
   // With the plant on, the battery sees plant output + solar - house.
   const gapWh = ((requiredPct - projectedPct) / 100) * capacityWh;
-  const runHours = gapWh / Math.max(plantW + balanceW, 1);
+  const runHours = Math.max(gapWh / Math.max(plantW + balanceW, 1), PLANT_MIN_RUN_HOURS);
   // Starting late only works if the battery survives until then: at the
   // current balance it hits the reserve after `hoursToFloor`, so the plant
   // cannot start any later than that (0 when it is already at or below it).
   const hoursToFloor =
     percent <= floorPct ? 0 : balanceW < 0 ? ((percent - floorPct) / 100 * capacityWh) / -balanceW : Infinity;
-  const startInHours = Math.min(hoursToNight - runHours, hoursToFloor);
+  const earliest = new Date(nowMs);
+  earliest.setHours(PLANT_EARLIEST_HOUR, 0, 0, 0);
+  const hoursToEarliest = Math.max(0, (earliest.getTime() - nowMs) / 3600e3);
+  // Never before the earliest hour, even if the battery runs out first.
+  const startInHours = Math.max(Math.min(hoursToNight - runHours, hoursToFloor), hoursToEarliest);
   const kind = startInHours <= 0 ? 'now' : startInHours < 2 ? 'soon' : 'later';
   return { kind, balanceW, projectedPct, requiredPct, lastsHours, hoursToNight, startInHours, runHours };
 }
