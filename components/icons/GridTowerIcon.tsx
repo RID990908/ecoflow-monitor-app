@@ -2,7 +2,7 @@ import Svg, { Circle, Defs, G, LinearGradient, Path, Stop } from 'react-native-s
 
 // Red (street grid) node icon from the 04 artboard (#nRed): steel lattice
 // tower, cyan insulators and a yellow badge with a dark bolt. Fixed palette
-// (no currentColor), same as TowerIcon.
+// (no currentColor).
 export function GridTowerIcon({ size = 34 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">

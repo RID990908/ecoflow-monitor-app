@@ -37,9 +37,3 @@ export function flowNodeStyle(state: FlowState) {
   };
 }
 
-// Plant verdict tone -> text/dot color.
-export const PLANT_TONE_COLOR = {
-  ok: COLORS.green,
-  warn: COLORS.yellow,
-  bad: COLORS.red,
-};

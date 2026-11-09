@@ -8,7 +8,6 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -16,13 +15,12 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import * as Updates from 'expo-updates';
 
 import type { FlowState } from './types';
-import { COLORS, PLANT_TONE_COLOR } from './theme';
+import { COLORS } from './theme';
 import { DiagramBackdrop } from './components/DiagramBackdrop';
 import { FlowPath } from './components/FlowPath';
 import { LiveDot } from './components/LiveDot';
 import { StatusBanner } from './components/StatusBanner';
 import { GridTowerIcon } from './components/icons/GridTowerIcon';
-import { GeneratorIcon } from './components/icons/GeneratorIcon';
 import { UsbIcon } from './components/icons/UsbIcon';
 import { ArrowDownIcon } from './components/icons/ArrowDownIcon';
 import { ArrowUpIcon } from './components/icons/ArrowUpIcon';
@@ -30,26 +28,21 @@ import { PercentRing } from './components/icons/PercentRing';
 import { IconCircle } from './components/icons/IconCircle';
 import { LateralIcon } from './components/icons/LateralIcon';
 import { LateralHook } from './components/icons/LateralHook';
-import type { AcOrigin } from './lib/acOrigin';
 import {
   BATTERY_CAPACITY_WH,
   PLANT_OUTPUT_W,
   clockAt,
   plantNeed,
-  plantNodeLabel,
-  plantTone,
 } from './lib/plantNeed';
 
 // Paths de los colectores (viewBox 0 0 300 130). Los de arriba van nodo -> hub
 // (entrada); los de abajo, hub -> nodo (salida), para que el dash viaje en el
 // sentido real del flujo. KEEP IN SYNC con ecoflow_telegram_monitor.py.
-const TOP_GRID = 'M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75 L 150,130';
-const TOP_PLANT = 'M 150,8 L 150,130';
-const TOP_SOLAR = 'M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75 L 150,130';
-// Track-only variants: the shared trunk is drawn once so idle tracks never
-// paint over an active beam.
-const TOP_GRID_TRACK = 'M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75';
-const TOP_SOLAR_TRACK = 'M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75';
+const TOP_GRID = 'M 50,8 L 50,55 Q 50,65 60,65 L 140,65 Q 150,65 150,75';
+const TOP_SOLAR = 'M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75';
+// Shared trunk into the hub, drawn once so idle tracks never paint over an
+// active beam; it lights up when either input is active.
+const TOP_TRUNK = 'M 150,75 L 150,130';
 const BOTTOM_USB_TRACK = 'M 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122';
 const BOTTOM_AC = 'M 150,0 L 150,55 Q 150,65 140,65 L 85,65 Q 75,65 75,75 L 75,122';
 const BOTTOM_USB = 'M 150,0 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122';
@@ -77,12 +70,9 @@ type StatusResponse = {
   percent?: number | null;
   soc_delta2?: number | null;
   soc_extra?: number | null;
-  source_verb?: string;
-  source_emoji?: string;
   pv_w?: number;
   ac_w?: number;
   delta2_net_w?: number | null;
-  extra_net_w?: number | null;
   delta2_remain?: { charging: boolean; text: string } | null;
   extra_remain?: { charging: boolean; text: string } | null;
   has_ac?: boolean;
@@ -91,17 +81,10 @@ type StatusResponse = {
   eta_text?: string | null;
   eta_ts?: number | null;
   eta_ok?: boolean | null;
-  threshold_text?: string | null;
   threshold_short?: string | null;
   threshold_ts?: number | null;
   threshold_pct?: number | null;
-  ac_origin?: AcOrigin;
-  grid_out?: boolean;
-  last_ac_text?: string | null;
-  last_ac_short?: string | null;
   remain_duration?: string | null;
-  ports?: { name: string; watts: number }[];
-  updated_at?: string;
   ac_out_w: number;
   extra_in_w: number;
   extra_out_w: number;
@@ -115,56 +98,10 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastSuccessAt, setLastSuccessAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  // Where the AC input comes from, as marked by the user. The backend keeps it
-  // (it survives restarts); local state only smooths the tap until the next
-  // poll echoes it back.
-  const [acOrigin, setAcOrigin] = useState<AcOrigin>('unclassified');
-  // Street power is out: the plant was chosen as the AC source, or AC that was
-  // classified as grid dropped. Any AC that shows up is assumed to come from
-  // the plant until the user says the grid is back.
-  const [gridOut, setGridOut] = useState(false);
-  // Ignore server echoes briefly after a tap so a poll already in flight does
-  // not undo it.
-  const originTapAt = useRef(0);
-
   // Derived flow flags (computed before the effects below so hooks stay
-  // unconditional and in a stable order).
-  // Wattage actual de cada nodo -> decide si su línea conectora se anima.
-  // AC arrival is detected from has_ac (never from the user's selection); the
-  // origin only decides which node (Red or Planta) shows it.
+  // unconditional and in a stable order). AC arrival is detected from has_ac.
   const hasAc = !!status?.has_ac;
-  const effectiveOrigin: AcOrigin = gridOut && hasAc ? 'plant' : acOrigin;
-  const redActive = hasAc && effectiveOrigin !== 'plant';
-  const plantActive = hasAc && effectiveOrigin === 'plant';
-
-  const serverOrigin = status?.ac_origin;
-  const serverGridOut = status?.grid_out;
-  useEffect(() => {
-    if (Date.now() - originTapAt.current < 3000) return;
-    if (serverOrigin) setAcOrigin(serverOrigin);
-    if (serverGridOut !== undefined) setGridOut(serverGridOut);
-  }, [serverOrigin, serverGridOut]);
-
-  // Tapping the Red / Planta nodes marks where the AC comes from; tapping the
-  // active one again clears it. While the grid is out, Red means "grid is back".
-  const markOrigin = useCallback((next: AcOrigin) => {
-    originTapAt.current = Date.now();
-    setAcOrigin(next);
-    setGridOut(next === 'plant');
-    fetch(`${API_BASE}/api/ac-origin`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ origin: next }),
-    }).catch(() => {
-      // Offline: the tap stays local and the next poll restores the server value.
-    });
-  }, []);
-  const onRedPress = useCallback(() => {
-    markOrigin(gridOut || acOrigin !== 'grid' ? 'grid' : 'unclassified');
-  }, [markOrigin, gridOut, acOrigin]);
-  const onPlantPress = useCallback(() => {
-    markOrigin(acOrigin === 'plant' ? 'unclassified' : 'plant');
-  }, [markOrigin, acOrigin]);
+  const redActive = hasAc;
   const solarActive = (status?.pv_w ?? 0) > 0;
   const acOutActive = (status?.ac_out_w ?? 0) > 0;
   const usbActive = (status?.usb_out_w ?? 0) > 0;
@@ -189,7 +126,7 @@ export default function App() {
   const delta2W = delta2Discharging ? delta2OutW : delta2InW;
   const delta2State: FlowState = delta2Discharging ? 'discharging' : delta2Charging ? 'charging' : 'neutral';
 
-  const mainFlowActive = redActive || plantActive || solarActive || acOutActive || usbActive;
+  const mainFlowActive = redActive || solarActive || acOutActive || usbActive;
   const lateralFlowActive = delta2Charging || delta2Discharging || lateralCharging || lateralDischarging;
 
   // Offset animado compartido para el "flujo" de las líneas conectoras
@@ -336,10 +273,6 @@ export default function App() {
     </View>
   ) : null;
 
-  // Wide web screens: diagram and plant card side by side.
-  const { width: winW } = useWindowDimensions();
-  const wide = winW >= 900;
-
   const inW = status?.in_w ?? 0;
   const outW = status?.out_w ?? 0;
   // The server's clock zone can disagree with the phone's, so the clock times
@@ -384,7 +317,7 @@ export default function App() {
     nowMs: now,
   });
   // With any AC input the plant is not needed; the verdict only applies on solar alone.
-  const nodeNeed = hasAc ? { ...need, kind: 'ok' as const } : need;
+  const plantNeeded = !hasAc && (need.kind === 'later' || need.kind === 'soon' || need.kind === 'now');
 
   const centerFlow = status && status.ready ? (
     <>
@@ -410,56 +343,32 @@ export default function App() {
                 </View>
               </View>
 
-              {/* GEOMETRY SPEC (top, three nodes into the hub): viewBox
+              {/* GEOMETRY SPEC (top, two nodes into the hub): viewBox
                   0 0 300 130, hub (150,122) at the ring's top edge, nodes
-                  Red/Planta/Solar at x=50/150/250 y=8 (with 3 icon-items
-                  space-around centers them at 1/6, 3/6, 5/6 of 300px). Red
-                  and Solar drop to a shared bus at y=65 (rounded 10px
-                  corners) and join the trunk at (150,65); Planta goes
-                  straight down. KEEP IN SYNC WITH
-                  ecoflow_telegram_monitor.py .flow-connectors.top. */}
+                  Red/Solar at x=50/250 y=8 (two 100px columns). Both drop to
+                  a shared bus at y=65 (rounded 10px corners) and join the
+                  trunk at (150,65). */}
               <View style={styles.flowTopWrap}>
                 <View style={styles.iconsRowTop}>
-                  {/* The dirLabel slot shows "hace Xh"/"sin registro" while
-                      there is no AC, and the unclassified hint while the
-                      user has not picked an origin. */}
-                  <IconCircle
-                    icon={<GridTowerIcon />}
-                    state={redActive ? 'charging' : 'neutral'}
-                    watts={`${redActive ? status.ac_w ?? 0 : 0} W`}
-                    dirLabel={
-                      redActive
-                        ? effectiveOrigin === 'unclassified'
-                          ? 'sin clasificar'
-                          : undefined
-                        : status.last_ac_short
-                          ? status.last_ac_short // backend text already reads "hace 19h 56m"
-                          : 'sin registro'
-                    }
-                    dirColor={redActive && effectiveOrigin === 'unclassified' ? COLORS.yellow : undefined}
-                    onPress={hasAc ? onRedPress : undefined}
-                    selected={redActive && effectiveOrigin === 'grid'}
-                    name="Red"
-                  />
-                  <IconCircle
-                    icon={<GeneratorIcon />}
-                    state={plantActive ? 'charging' : 'neutral'}
-                    watts={`${plantActive ? status.ac_w ?? 0 : 0} W`}
-                    dirLabel={plantActive ? 'en uso' : plantNodeLabel(nodeNeed, now)}
-                    dirColor={plantActive ? undefined : PLANT_TONE_COLOR[plantTone(nodeNeed.kind)]}
-                    onPress={hasAc ? onPlantPress : undefined}
-                    selected={plantActive}
-                    name="Planta"
-                  />
-                  <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
+                  <View style={styles.topNode}>
+                    <IconCircle
+                      icon={<GridTowerIcon />}
+                      state={redActive ? 'charging' : 'neutral'}
+                      watts={`${redActive ? status.ac_w ?? 0 : 0} W`}
+                      name="Red"
+                    />
+                  </View>
+                  <View style={styles.topNode}>
+                    <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
+                  </View>
                 </View>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectorsTop}>
-                  <FlowPath d={TOP_GRID_TRACK} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
-                  <FlowPath d={TOP_SOLAR_TRACK} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
-                  <FlowPath d={TOP_PLANT} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
+                  <FlowPath d={TOP_GRID} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
+                  <FlowPath d={TOP_SOLAR} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
+                  <FlowPath d={TOP_TRUNK} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
                   <FlowPath d={TOP_GRID} color={COLORS.green} active={redActive} dashOffset={flowDashOffset} layer="beam" />
-                  <FlowPath d={TOP_PLANT} color={COLORS.green} active={plantActive} dashOffset={flowDashOffset} layer="beam" />
                   <FlowPath d={TOP_SOLAR} color={COLORS.green} active={solarActive} dashOffset={flowDashOffset} layer="beam" />
+                  <FlowPath d={TOP_TRUNK} color={COLORS.green} active={redActive || solarActive} dashOffset={flowDashOffset} layer="beam" />
                 </Svg>
               </View>
 
@@ -484,7 +393,7 @@ export default function App() {
                 </Svg>
                 <PercentRing pct={pct} color={ringColor} />
                 <View style={styles.ringInner}>
-                  <LiveDot live={!stale} plantNeeded={nodeNeed.kind !== 'ok' && nodeNeed.kind !== 'night'} />
+                  <LiveDot live={!stale} plantNeeded={plantNeeded} />
                   <Text style={styles.pct}>{status.percent != null ? status.percent.toFixed(1) : '--'}%</Text>
                   <Text style={styles.pctSubLabel}>{batteryFull ? 'Batería llena' : 'Tiempo restante'}</Text>
                   {batteryFull ? null : <Text style={styles.pctSubDur}>{status.remain_duration || '--'}</Text>}
@@ -547,9 +456,7 @@ export default function App() {
         >
           {stale ? <StatusBanner minutesAgo={minutesAgo} /> : null}
           {notReadyCard}
-          <View style={[styles.body, wide && styles.bodyWide]}>
-          <View style={[styles.diagram, wide && styles.diagramWide, stale && styles.diagramStale]}>{centerFlow}</View>
-          </View>
+          <View style={[styles.diagram, stale && styles.diagramStale]}>{centerFlow}</View>
         </ScrollView>
 
       </SafeAreaView>
@@ -575,7 +482,9 @@ const styles = StyleSheet.create({
   ioValue: { fontSize: 24, fontWeight: '700', marginTop: 3, color: COLORS.text, fontVariant: ['tabular-nums'] },
 
   flowTopWrap: { width: 300, maxWidth: '100%', alignSelf: 'center', paddingBottom: 122 },
-  iconsRowTop: { width: 300, maxWidth: 300, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-around' },
+  // Two 100px columns centered at x=50 / 250 so they line up with TOP_GRID / TOP_SOLAR.
+  iconsRowTop: { width: 300, maxWidth: 300, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  topNode: { width: 100, alignItems: 'center' },
   flowConnectorsTop: { position: 'absolute', left: 0, bottom: 0 },
   flowBottomWrap: { width: 300, maxWidth: '100%', alignSelf: 'center', paddingTop: 122 },
   flowConnectors: { position: 'absolute', top: 0, left: 0 },
@@ -602,9 +511,6 @@ const styles = StyleSheet.create({
   pctEta: { fontSize: 13, fontWeight: '600', marginTop: 4 },
   pctThreshold: { fontSize: 12, fontWeight: '600', marginTop: 3, color: COLORS.red },
 
-  body: { width: '100%', alignItems: 'center' },
-  bodyWide: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 48 },
-  diagramWide: { width: 420 },
   diagram: { width: '100%', alignItems: 'center' },
   diagramStale: { opacity: 0.45 },
 });

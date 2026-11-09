@@ -6,18 +6,18 @@ export const BATTERY_CAPACITY_WH = 2048;
 // Output of the plant while it is running, in W.
 export const PLANT_OUTPUT_W = 1200;
 // Hour of day (local, 24 h) by which the battery must be ready for the night.
-export const NIGHT_START_HOUR = 21;
+const NIGHT_START_HOUR = 21;
 // Hours the night lasts (until the sun is back), used to size the reserve.
-export const NIGHT_HOURS = 10;
+const NIGHT_HOURS = 10;
 // The plant is never started before this hour of day (local, 24 h).
-export const PLANT_EARLIEST_HOUR = 9;
+const PLANT_EARLIEST_HOUR = 9;
 // Shortest run worth starting the plant for, in hours: a shorter gap is
 // covered by running it this long, ending at NIGHT_START_HOUR.
-export const PLANT_MIN_RUN_HOURS = 1;
+const PLANT_MIN_RUN_HOURS = 1;
 // Assumed house load overnight, in W. Today's reading is too noisy to size it.
-export const NIGHT_LOAD_W = 150;
+const NIGHT_LOAD_W = 150;
 
-export type PlantNeedInput = {
+type PlantNeedInput = {
   percent: number;
   floorPct: number;
   pvW: number;
@@ -84,51 +84,8 @@ export function plantNeed({ percent, floorPct, pvW, outW, capacityWh, plantW, no
   return { kind, balanceW, projectedPct, requiredPct, lastsHours, hoursToNight, startInHours, runHours };
 }
 
-// `5 h 12 min` / `2 h` / `45 min`.
-export function formatHours(h: number): string {
-  const m = Math.round(h * 60);
-  if (m < 60) return `${m} min`;
-  const rest = m % 60;
-  return rest ? `${Math.floor(m / 60)} h ${String(rest).padStart(2, '0')} min` : `${Math.floor(m / 60)} h`;
-}
-
-// Compact form for node labels: `3h05` / `2h` / `45m`.
-export function formatHoursShort(h: number): string {
-  const m = Math.round(h * 60);
-  if (m < 60) return `${m}m`;
-  const rest = m % 60;
-  return rest ? `${Math.floor(m / 60)}h${String(rest).padStart(2, '0')}` : `${Math.floor(m / 60)}h`;
-}
-
 // Wall-clock `HH:MM` (24 h) of an epoch in ms, in the phone's time zone.
 export function clockAt(ms: number): string {
   const d = new Date(ms);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-// Wall-clock `HH:MM` (24 h) `h` hours after `nowMs`.
-export function clockIn(h: number, nowMs: number): string {
-  return clockAt(nowMs + h * 3600e3);
-}
-
-export type PlantTone = 'ok' | 'warn' | 'bad';
-
-export function plantTone(kind: PlantNeed['kind']): PlantTone {
-  return kind === 'ok' ? 'ok' : kind === 'now' ? 'bad' : 'warn';
-}
-
-// Verdict headline shown in the plant card.
-export function plantTitle(need: PlantNeed, nowMs: number): string {
-  if (need.kind === 'ok') return 'No es necesaria';
-  if (need.kind === 'night') return 'Sin planta esta noche';
-  if (need.kind === 'now') return 'Enciéndela ya';
-  return `Enciéndela a las ${clockIn(need.startInHours ?? 0, nowMs)}`;
-}
-
-// Short verdict for the Planta node label.
-export function plantNodeLabel(need: PlantNeed, nowMs: number): string {
-  if (need.kind === 'ok') return 'No necesaria';
-  if (need.kind === 'night') return 'Pasadas las 21h';
-  if (need.kind === 'now') return 'Encender ya';
-  return `A las ${clockIn(need.startInHours ?? 0, nowMs)}`;
 }
