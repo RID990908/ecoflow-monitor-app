@@ -45,6 +45,8 @@ const TOP_SOLAR = 'M 250,8 L 250,55 Q 250,65 240,65 L 160,65 Q 150,65 150,75';
 // Shared trunk into the hub, drawn once: it lights up for any input (Red,
 // Solar or the plant, which has no node of its own).
 const TOP_TRUNK = 'M 150,75 L 150,130';
+// Where the Planta node used to sit: lit only while the plant brings current.
+const TOP_PLANT = 'M 150,8 L 150,75';
 const BOTTOM_USB_TRACK = 'M 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122';
 const BOTTOM_AC = 'M 150,0 L 150,55 Q 150,65 140,65 L 85,65 Q 75,65 75,75 L 75,122';
 const BOTTOM_USB = 'M 150,0 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 225,122';
@@ -443,9 +445,11 @@ export default function App() {
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectorsTop}>
                   <FlowPath d={TOP_GRID} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
                   <FlowPath d={TOP_SOLAR} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
+                  <FlowPath d={TOP_PLANT} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
                   <FlowPath d={TOP_TRUNK} color={COLORS.green} active={false} dashOffset={flowDashOffset} layer="track" />
                   <FlowPath d={TOP_GRID} color={COLORS.green} active={redActive} dashOffset={flowDashOffset} layer="beam" />
                   <FlowPath d={TOP_SOLAR} color={COLORS.green} active={solarActive} dashOffset={flowDashOffset} layer="beam" />
+                  <FlowPath d={TOP_PLANT} color={COLORS.green} active={plantRunning} dashOffset={flowDashOffset} layer="beam" />
                   <FlowPath d={TOP_TRUNK} color={COLORS.green} active={redActive || plantRunning || solarActive} dashOffset={flowDashOffset} layer="beam" />
                 </Svg>
               </View>
