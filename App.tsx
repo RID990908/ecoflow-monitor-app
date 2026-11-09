@@ -29,10 +29,8 @@ import { IconCircle } from './components/icons/IconCircle';
 import { LateralIcon } from './components/icons/LateralIcon';
 import { LateralHook } from './components/icons/LateralHook';
 import {
-  BATTERY_CAPACITY_WH,
-  PLANT_OUTPUT_W,
   clockAt,
-  plantNeed,
+  plantNeeded as isPlantNeeded,
 } from './lib/plantNeed';
 
 // Paths de los colectores (viewBox 0 0 300 130). Los de arriba van nodo -> hub
@@ -306,18 +304,15 @@ export default function App() {
       ? 'Usando la CA'
       : stateWord;
 
-  const floorPct = status?.threshold_pct ?? 20;
-  const need = plantNeed({
-    percent: pct,
-    floorPct,
-    pvW: status?.pv_w ?? 0,
-    outW,
-    capacityWh: BATTERY_CAPACITY_WH,
-    plantW: PLANT_OUTPUT_W,
-    nowMs: now,
-  });
-  // With any AC input the plant is not needed; the verdict only applies on solar alone.
-  const plantNeeded = !hasAc && (need.kind === 'later' || need.kind === 'soon' || need.kind === 'now');
+  // With any AC input the plant is not needed.
+  const plantNeeded =
+    !hasAc &&
+    isPlantNeeded({
+      percent: pct,
+      thresholdPct: status?.threshold_pct,
+      thresholdAtMs: status?.threshold_ts != null ? status.threshold_ts * 1000 : null,
+      nowMs: now,
+    });
 
   const centerFlow = status && status.ready ? (
     <>
