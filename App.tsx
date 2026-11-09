@@ -34,6 +34,7 @@ import type { AcOrigin } from './lib/acOrigin';
 import {
   BATTERY_CAPACITY_WH,
   PLANT_OUTPUT_W,
+  clockAt,
   plantNeed,
   plantNodeLabel,
   plantTone,
@@ -88,9 +89,11 @@ type StatusResponse = {
   in_w?: number;
   out_w?: number;
   eta_text?: string | null;
+  eta_ts?: number | null;
   eta_ok?: boolean | null;
   threshold_text?: string | null;
   threshold_short?: string | null;
+  threshold_ts?: number | null;
   threshold_pct?: number | null;
   ac_origin?: AcOrigin;
   grid_out?: boolean;
@@ -263,7 +266,7 @@ export default function App() {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      const res = await fetch(`${API_BASE}/api/status`, { signal: controller.signal });
+      const res = await fetch(`${API_BASE}/api/status?tz_offset_min=${-new Date().getTimezoneOffset()}`, { signal: controller.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: StatusResponse = await res.json();
       setStatus(data);
@@ -339,12 +342,22 @@ export default function App() {
 
   const inW = status?.in_w ?? 0;
   const outW = status?.out_w ?? 0;
+  // The server's clock zone can disagree with the phone's, so the clock times
+  // are rebuilt here from the epoch the server sends; its strings are the fallback.
+  const etaText =
+    status?.eta_ts != null
+      ? `${status.eta_ok ? 'Llena a las' : 'Dura hasta las'} ${clockAt(status.eta_ts * 1000)}`
+      : status?.eta_text;
+  const thresholdShort =
+    status?.threshold_ts != null && status.threshold_pct != null
+      ? `${status.threshold_pct}% a las ${clockAt(status.threshold_ts * 1000)}`
+      : status?.threshold_short;
   const stateWord = inW > outW ? 'Cargando' : inW < outW ? 'Descargando' : 'Usando';
   const stateColor =
     stateWord === 'Usando'
       ? COLORS.dim
-      : status?.eta_text
-        ? status.eta_ok
+      : etaText
+        ? status?.eta_ok
           ? COLORS.green
           : COLORS.red
         : stateWord === 'Cargando'
@@ -354,8 +367,8 @@ export default function App() {
   // Full battery: the backend reports no remaining time ("—"), so say so.
   const remainEmpty = !status?.remain_duration || status.remain_duration === '—';
   const batteryFull = pct >= 99 && remainEmpty;
-  const ringLine = status?.eta_text
-    ? status.eta_text
+  const ringLine = etaText
+    ? etaText
     : stateWord === 'Usando' && hasAc
       ? 'Usando la CA'
       : stateWord;
@@ -477,7 +490,7 @@ export default function App() {
                   {batteryFull ? null : <Text style={styles.pctSubDur}>{status.remain_duration || '--'}</Text>}
                   {/* eta_text already says the direction ("Llena a las…", "Dura hasta las…"); the state word only fills in when there is none. */}
                   <Text style={[styles.pctEta, { color: stateColor }]}>{ringLine}</Text>
-                  {status.threshold_short ? <Text style={styles.pctThreshold}>{status.threshold_short}</Text> : null}
+                  {thresholdShort ? <Text style={styles.pctThreshold}>{thresholdShort}</Text> : null}
                 </View>
                 <View style={styles.lateralOverlayLeft}>
                   <LateralHook side="left" charging={delta2Charging} discharging={delta2Discharging} dashOffset={flowDashOffsetLateral} />

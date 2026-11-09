@@ -65,7 +65,12 @@ export function plantNeed({ percent, floorPct, pvW, outW, capacityWh, plantW, no
   // With the plant on, the battery sees plant output + solar - house.
   const gapWh = ((requiredPct - projectedPct) / 100) * capacityWh;
   const runHours = gapWh / Math.max(plantW + balanceW, 1);
-  const startInHours = hoursToNight - runHours;
+  // Starting late only works if the battery survives until then: at the
+  // current balance it hits the reserve after `hoursToFloor`, so the plant
+  // cannot start any later than that (0 when it is already at or below it).
+  const hoursToFloor =
+    percent <= floorPct ? 0 : balanceW < 0 ? ((percent - floorPct) / 100 * capacityWh) / -balanceW : Infinity;
+  const startInHours = Math.min(hoursToNight - runHours, hoursToFloor);
   const kind = startInHours <= 0 ? 'now' : startInHours < 2 ? 'soon' : 'later';
   return { kind, balanceW, projectedPct, requiredPct, lastsHours, hoursToNight, startInHours, runHours };
 }
@@ -86,10 +91,15 @@ export function formatHoursShort(h: number): string {
   return rest ? `${Math.floor(m / 60)}h${String(rest).padStart(2, '0')}` : `${Math.floor(m / 60)}h`;
 }
 
+// Wall-clock `HH:MM` (24 h) of an epoch in ms, in the phone's time zone.
+export function clockAt(ms: number): string {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 // Wall-clock `HH:MM` (24 h) `h` hours after `nowMs`.
 export function clockIn(h: number, nowMs: number): string {
-  const d = new Date(nowMs + h * 3600e3);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return clockAt(nowMs + h * 3600e3);
 }
 
 export type PlantTone = 'ok' | 'warn' | 'bad';
