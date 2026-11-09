@@ -471,7 +471,7 @@ export default function App() {
                 </Svg>
                 <PercentRing pct={pct} color={ringColor} />
                 <View style={styles.ringInner}>
-                  <LiveDot live={!stale} plantNeeded={plantRunning || (nodeNeed.kind !== 'ok' && nodeNeed.kind !== 'night')} />
+                  <LiveDot live={!stale} plantNeeded={nodeNeed.kind !== 'ok' && nodeNeed.kind !== 'night'} />
                   <Text style={styles.pct}>{status.percent != null ? status.percent.toFixed(1) : '--'}%</Text>
                   <Text style={styles.pctSubLabel}>{batteryFull ? 'Batería llena' : 'Tiempo restante'}</Text>
                   {batteryFull ? null : <Text style={styles.pctSubDur}>{status.remain_duration || '--'}</Text>}
