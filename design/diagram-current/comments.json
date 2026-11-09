@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "comments": [
+    {
+      "id": "46arhc3f",
+      "file": "01-actual.html",
+      "selector": "body > div:nth-of-type(5) > div:nth-of-type(2)",
+      "excerpt": "14.6% Tiempo restante 3h 37m Llena a las 14:00",
+      "comment": "donde esta el circulo verde vamos a hacer lo sigueinte mientras no haga falta se mantendra el boton verde cuando sea necesario la planta mostraremos el icono de planta que tenemos actualmente el que esta en la captura",
+      "createdAt": "2026-11-09T15:28:03.109Z",
+      "status": "resolved",
+      "sentAt": "2026-11-09T15:29:22.922Z",
+      "resolvedAt": "2026-11-09T15:29:35.250Z",
+      "screenshot": ".screenshots/46arhc3f.png"
+    },
+    {
+      "id": "375zpdjr",
+      "file": "01-actual.html",
+      "selector": "body > div:nth-of-type(3) > div",
+      "excerpt": "",
+      "comment": "eliminamos este nodo y su linea respectiva hacia el circulo central por tanto el de corriente de la calle deja de ser clickeable",
+      "createdAt": "2026-11-09T15:28:39.878Z",
+      "status": "resolved",
+      "sentAt": "2026-11-09T15:29:22.922Z",
+      "resolvedAt": "2026-11-09T15:29:35.250Z"
+    },
+    {
+      "id": "frze0tny",
+      "file": "01-actual.html",
+      "selector": "body > div:nth-of-type(2) > em",
+      "excerpt": "hace 0h 28m",
+      "comment": "podemos quitar esto completamente ya que como vamos a ver varias fuentes esto se empieza a enturviar",
+      "createdAt": "2026-11-09T15:29:07.084Z",
+      "status": "resolved",
+      "sentAt": "2026-11-09T15:29:22.922Z",
+      "resolvedAt": "2026-11-09T15:29:35.250Z"
+    },
+    {
+      "id": "btkwt4la",
+      "file": "01-actual.html",
+      "selector": "body > svg:nth-of-type(1) > path:nth-of-type(4)",
+      "excerpt": "",
+      "comment": "eesta linea se elimina",
+      "createdAt": "2026-11-09T15:29:19.209Z",
+      "status": "resolved",
+      "sentAt": "2026-11-09T15:29:22.922Z",
+      "resolvedAt": "2026-11-09T15:29:35.250Z"
+    },
+    {
+      "id": "upwrgb7w",
+      "file": "01-actual.html",
+      "selector": "#tg",
+      "excerpt": "Vista previa: planta necesaria",
+      "comment": "esto porque ? \nes innecesario",
+      "createdAt": "2026-11-09T15:30:41.123Z",
+      "status": "resolved",
+      "sentAt": "2026-11-09T15:30:43.479Z",
+      "resolvedAt": "2026-11-09T15:30:50.106Z"
+    }
+  ]
+}

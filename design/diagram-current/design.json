@@ -1,0 +1,27 @@
+{
+  "title": "Diagrama actual",
+  "brief": "Current live power-flow diagram as shipped (commit 9e30a6b), for reference",
+  "artboards": [
+    {
+      "file": "01-actual.html",
+      "title": "Actual",
+      "tradeoff": "Reference of what ships today",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "02-planta-necesaria.html",
+      "title": "Planta necesaria",
+      "tradeoff": "Same layout; the plant icon replaces the green dot when the plant is needed",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "file": "03-con-corriente-calle.html",
+      "title": "Con corriente de la calle",
+      "tradeoff": "Red lit with the grid flow into the ring; green dot stays",
+      "width": 390,
+      "height": 844
+    }
+  ]
+}
