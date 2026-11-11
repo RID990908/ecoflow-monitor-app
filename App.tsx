@@ -28,9 +28,13 @@ import { PercentRing } from './components/icons/PercentRing';
 import { IconCircle } from './components/icons/IconCircle';
 import { LateralIcon } from './components/icons/LateralIcon';
 import { LateralHook } from './components/icons/LateralHook';
+import { PlantPill } from './components/PlantPill';
 import {
   clockAt,
-  plantNeeded as isPlantNeeded,
+  plantGhostTo,
+  plantIconTone,
+  plantPill,
+  type PlantPlan,
 } from './lib/plantNeed';
 
 // Paths de los colectores (viewBox 0 0 300 130). Los de arriba van nodo -> hub
@@ -82,6 +86,7 @@ type StatusResponse = {
   threshold_short?: string | null;
   threshold_ts?: number | null;
   threshold_pct?: number | null;
+  plant_plan?: PlantPlan | null;
   remain_duration?: string | null;
   ac_out_w: number;
   extra_in_w: number;
@@ -304,20 +309,17 @@ export default function App() {
       ? 'Usando la CA'
       : stateWord;
 
-  // With any AC input the plant is not needed.
-  const plantNeeded =
-    !hasAc &&
-    isPlantNeeded({
-      percent: pct,
-      thresholdPct: status?.threshold_pct,
-      thresholdAtMs: status?.threshold_ts != null ? status.threshold_ts * 1000 : null,
-      nowMs: now,
-    });
+  // With any AC input there is no plant plan.
+  const plantPlan = hasAc ? null : status?.plant_plan ?? null;
+  const pill = plantPill(plantPlan);
+  const plantTone = plantIconTone(plantPlan);
+  const ghostTo = plantGhostTo(plantPlan, pct);
 
   const centerFlow = status && status.ready ? (
     <>
               {/* io-row: entrada / salida */}
               <View style={styles.ioRow}>
+                {pill ? <PlantPill pill={pill} /> : null}
                 <View style={styles.ioCol}>
                   <View style={styles.ioLabelRow}>
                     <ArrowDownIcon color={(status.in_w ?? 0) > 0 ? COLORS.green : COLORS.faint} />
@@ -386,9 +388,9 @@ export default function App() {
                   </Defs>
                   <Circle cx="50%" cy="50%" r="50%" fill="url(#ringGlow)" />
                 </Svg>
-                <PercentRing pct={pct} color={ringColor} />
+                <PercentRing pct={pct} color={ringColor} ghostTo={ghostTo} />
                 <View style={styles.ringInner}>
-                  <LiveDot live={!stale} plantNeeded={plantNeeded} />
+                  <LiveDot live={!stale} plantTone={plantTone} />
                   <Text style={styles.pct}>{status.percent != null ? status.percent.toFixed(1) : '--'}%</Text>
                   <Text style={styles.pctSubLabel}>{batteryFull ? 'Batería llena' : 'Tiempo restante'}</Text>
                   {batteryFull ? null : <Text style={styles.pctSubDur}>{status.remain_duration || '--'}</Text>}

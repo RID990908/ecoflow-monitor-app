@@ -6,15 +6,16 @@ import { GeneratorIcon } from './icons/GeneratorIcon';
 
 type Props = {
   live: boolean;
-  // The gas plant is needed: its icon replaces the green dot (while live).
-  plantNeeded?: boolean;
+  // The gas plant has a plan: its icon replaces the green dot (while live);
+  // red when time is running out.
+  plantTone?: 'amber' | 'red' | null;
 };
 
 const SIZE = 10;
 const PLANT_SIZE = 26;
 
-export function LiveDot({ live, plantNeeded = false }: Props) {
-  const showPlant = live && plantNeeded;
+export function LiveDot({ live, plantTone = null }: Props) {
+  const showPlant = live && plantTone != null;
   const ripple = useRef(new Animated.Value(0)).current;
 
   // The ripple only runs while live; stale state is a static red dot.
@@ -41,7 +42,7 @@ export function LiveDot({ live, plantNeeded = false }: Props) {
   if (showPlant) {
     return (
       <View style={styles.plantWrap} accessible accessibilityLabel="Planta necesaria" pointerEvents="none">
-        <GeneratorIcon size={PLANT_SIZE} />
+        <GeneratorIcon size={PLANT_SIZE} badge={plantTone === 'red' ? COLORS.red : undefined} />
       </View>
     );
   }

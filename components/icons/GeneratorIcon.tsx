@@ -5,7 +5,7 @@ import Svg, { Circle, Defs, G, LinearGradient, Mask, Path, Rect, Stop } from 're
 // gaps are cut out with a Mask. Orange badge with a dark flame bottom-left.
 const BODY_TRANSFORM = 'translate(1.6 -1.4) scale(.86)';
 
-export function GeneratorIcon({ size = 36 }: { size?: number }) {
+export function GeneratorIcon({ size = 36, badge = '#fb923c' }: { size?: number; badge?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Defs>
@@ -36,7 +36,7 @@ export function GeneratorIcon({ size = 36 }: { size?: number }) {
       </G>
       <Circle cx={16.6} cy={16.4} r={2.8} fill="url(#genSteel)" />
       <Circle cx={16.6} cy={16.4} r={1} fill="#0c1117" />
-      <Circle cx={5.2} cy={17.8} r={4.1} fill="#fb923c" />
+      <Circle cx={5.2} cy={17.8} r={4.1} fill={badge} />
       <Path
         d="M12 2c1 3.5 5 5.5 5 10.2A5 5 0 0 1 12 17.5a5 5 0 0 1-5-5.3c0-2 1-3.4 2.2-4.6.3 1.6 1 2.4 1.8 2.8C11 8 11.2 4.6 12 2z"
         fill="#2b1203"

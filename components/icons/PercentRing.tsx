@@ -11,7 +11,19 @@ function lighten(hex: string) {
   return `rgb(${mix(n >> 16)},${mix((n >> 8) & 255)},${mix(n & 255)})`;
 }
 
-export function PercentRing({ pct, color, size = 224 }: { pct: number; color: string; size?: number }) {
+// `ghostTo` draws a translucent amber segment from `pct` to that % on the
+// track: where the battery will be when the plant stops.
+export function PercentRing({
+  pct,
+  color,
+  size = 224,
+  ghostTo = null,
+}: {
+  pct: number;
+  color: string;
+  size?: number;
+  ghostTo?: number | null;
+}) {
   const stroke = 14;
   const r = (size - stroke) / 2;
   const c = size / 2;
@@ -27,6 +39,8 @@ export function PercentRing({ pct, color, size = 224 }: { pct: number; color: st
     rotation: -90,
     origin: `${c}, ${c}`,
   };
+  const from = Math.min(Math.max(pct, 0), 100);
+  const ghostLen = ghostTo != null && ghostTo > from ? (circumference * (ghostTo - from)) / 100 : 0;
   return (
     <Svg width={size} height={size} style={{ position: 'absolute' }}>
       <Defs>
@@ -36,6 +50,20 @@ export function PercentRing({ pct, color, size = 224 }: { pct: number; color: st
         </LinearGradient>
       </Defs>
       <Circle cx={c} cy={c} r={r} stroke={COLORS.ringTrack} strokeWidth={stroke} fill="none" />
+      {ghostLen > 0 ? (
+        <Circle
+          cx={c}
+          cy={c}
+          r={r}
+          fill="none"
+          stroke={COLORS.yellow}
+          strokeWidth={stroke}
+          opacity={0.45}
+          strokeDasharray={`${ghostLen} ${circumference}`}
+          rotation={-90 + from * 3.6}
+          origin={`${c}, ${c}`}
+        />
+      ) : null}
       <Circle {...arc} stroke={color} strokeWidth={stroke + 8} opacity={0.14} />
       <Circle {...arc} stroke="url(#ringGrad)" strokeWidth={stroke} />
     </Svg>
