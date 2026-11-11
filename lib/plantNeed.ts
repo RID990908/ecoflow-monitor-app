@@ -12,7 +12,7 @@ export type PlantPlan = {
   start_ts: number | null;
   minutes: number | null;
   // Battery % needed now to reach the next 08:00 with the reserve if the plant
-  // stopped now (for `plan`, `now` and `urgent`; null when it is above 100%).
+  // stopped now (for `plan`, `now` and `urgent`; null when it is above 100%; 100 for `short`).
   target_pct: number | null;
   // Battery % at the next 08:00 without the plant (only for `not_needed`).
   end_pct: number | null;
@@ -72,6 +72,6 @@ export function plantIconTone(plan: PlantPlan | null | undefined): 'amber' | 're
 // is needed. Null when there is nothing to draw (already reached, or the plan
 // has no target).
 export function plantGhostTo(plan: PlantPlan | null | undefined, percent: number): number | null {
-  if (!plan || (plan.kind !== 'plan' && plan.kind !== 'now' && plan.kind !== 'urgent')) return null;
+  if (!plan || (plan.kind !== 'plan' && plan.kind !== 'now' && plan.kind !== 'urgent' && plan.kind !== 'short')) return null;
   return plan.target_pct != null && plan.target_pct > percent ? Math.min(plan.target_pct, 100) : null;
 }
