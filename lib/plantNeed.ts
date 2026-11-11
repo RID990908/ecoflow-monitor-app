@@ -11,8 +11,8 @@ export type PlantPlan = {
   // Epoch in seconds of the planned start (only for `plan`).
   start_ts: number | null;
   minutes: number | null;
-  // Battery % needed now to reach the next 08:00 with the reserve if the plant
-  // stopped now (for `plan`, `now` and `urgent`; null when it is above 100%; 100 for `short`).
+  // Fixed battery % that is enough to reach the next 08:00 with the reserve
+  // when it is there at 22:00 (null in the `short` state: not even 100% is enough).
   target_pct: number | null;
   // Battery % at the next 08:00 without the plant (only for `not_needed`).
   end_pct: number | null;
@@ -51,7 +51,7 @@ export function plantPill(plan: PlantPlan | null | undefined): PlantPill | null 
     case 'no_time':
       return { text: 'No da tiempo', tone: 'red' };
     case 'short':
-      return plan.until_ts != null ? { text: `Solo hasta ${clockAt(plan.until_ts * 1000)}`, tone: 'red' } : null;
+      return { text: 'No alcanza', tone: 'red' };
     case 'not_needed':
       return plan.end_pct != null ? { text: `Sin planta · ${Math.round(plan.end_pct)}%`, tone: 'green' } : null;
     default:
@@ -68,10 +68,11 @@ export function plantIconTone(plan: PlantPlan | null | undefined): 'amber' | 're
   return null;
 }
 
-// Where the translucent segment under the green arc ends: the battery % that
-// is needed. Null when there is nothing to draw (already reached, or the plan
-// has no target).
+// Where the translucent segment under the green arc ends: the fixed % that is
+// enough to reach the morning. Null when there is no target (the `short` state)
+// or the battery is already above it, so it only shows once the green drops
+// below that threshold.
 export function plantGhostTo(plan: PlantPlan | null | undefined, percent: number): number | null {
-  if (!plan || (plan.kind !== 'plan' && plan.kind !== 'now' && plan.kind !== 'urgent' && plan.kind !== 'short')) return null;
-  return plan.target_pct != null && plan.target_pct > percent ? Math.min(plan.target_pct, 100) : null;
+  if (!plan || plan.target_pct == null) return null;
+  return plan.target_pct > percent ? Math.min(plan.target_pct, 100) : null;
 }
