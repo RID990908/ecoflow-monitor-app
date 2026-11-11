@@ -4,17 +4,20 @@
 // reaches 07:00 with the reserve without running past the quiet hours; this
 // file only turns that plan into what the screen shows.
 
-export type PlantPlanKind = 'plan' | 'now' | 'urgent' | 'no_time' | 'not_needed';
+export type PlantPlanKind = 'plan' | 'now' | 'urgent' | 'no_time' | 'not_needed' | 'short';
 
 export type PlantPlan = {
   kind: PlantPlanKind;
   // Epoch in seconds of the planned start (only for `plan`).
   start_ts: number | null;
   minutes: number | null;
-  // Battery % when the plant stops (for `plan`, `now` and `urgent`).
+  // Battery % needed now to reach the next 08:00 with the reserve if the plant
+  // stopped now (for `plan`, `now` and `urgent`; null when it is above 100%).
   target_pct: number | null;
-  // Battery % at 07:00 without the plant (only for `not_needed`).
+  // Battery % at the next 08:00 without the plant (only for `not_needed`).
   end_pct: number | null;
+  // Epoch in seconds when even a full battery at 22:00 runs out (only for `short`).
+  until_ts: number | null;
 };
 
 export type PlantTone = 'amber' | 'red' | 'green';
@@ -47,6 +50,8 @@ export function plantPill(plan: PlantPlan | null | undefined): PlantPill | null 
       return plan.minutes != null ? { text: `Ahora · ${duration(plan.minutes)}`, tone: 'red' } : null;
     case 'no_time':
       return { text: 'No da tiempo', tone: 'red' };
+    case 'short':
+      return plan.until_ts != null ? { text: `Solo hasta ${clockAt(plan.until_ts * 1000)}`, tone: 'red' } : null;
     case 'not_needed':
       return plan.end_pct != null ? { text: `Sin planta · ${Math.round(plan.end_pct)}%`, tone: 'green' } : null;
     default:
@@ -59,12 +64,13 @@ export function plantPill(plan: PlantPlan | null | undefined): PlantPill | null 
 export function plantIconTone(plan: PlantPlan | null | undefined): 'amber' | 'red' | null {
   if (!plan) return null;
   if (plan.kind === 'plan' || plan.kind === 'now') return 'amber';
-  if (plan.kind === 'urgent' || plan.kind === 'no_time') return 'red';
+  if (plan.kind === 'urgent' || plan.kind === 'no_time' || plan.kind === 'short') return 'red';
   return null;
 }
 
-// Where the translucent segment on the ring ends: the battery % when the
-// plant stops. Null when there is no segment to draw.
+// Where the translucent segment under the green arc ends: the battery % that
+// is needed. Null when there is nothing to draw (already reached, or the plan
+// has no target).
 export function plantGhostTo(plan: PlantPlan | null | undefined, percent: number): number | null {
   if (!plan || (plan.kind !== 'plan' && plan.kind !== 'now' && plan.kind !== 'urgent')) return null;
   return plan.target_pct != null && plan.target_pct > percent ? Math.min(plan.target_pct, 100) : null;

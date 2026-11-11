@@ -11,8 +11,9 @@ function lighten(hex: string) {
   return `rgb(${mix(n >> 16)},${mix((n >> 8) & 255)},${mix(n & 255)})`;
 }
 
-// `ghostTo` draws a translucent amber segment from `pct` to that % on the
-// track: where the battery will be when the plant stops.
+// `ghostTo` draws a translucent amber segment under the green arc, from the
+// start of the ring up to that %: the battery % that is needed. Only what is
+// beyond the green arc shows, and it fades away as the green crosses it.
 export function PercentRing({
   pct,
   color,
@@ -40,7 +41,7 @@ export function PercentRing({
     origin: `${c}, ${c}`,
   };
   const from = Math.min(Math.max(pct, 0), 100);
-  const ghostLen = ghostTo != null && ghostTo > from ? (circumference * (ghostTo - from)) / 100 : 0;
+  const ghostLen = ghostTo != null && ghostTo > from ? (circumference * Math.min(ghostTo, 100)) / 100 : 0;
   return (
     <Svg width={size} height={size} style={{ position: 'absolute' }}>
       <Defs>
@@ -60,7 +61,7 @@ export function PercentRing({
           strokeWidth={stroke}
           opacity={0.45}
           strokeDasharray={`${ghostLen} ${circumference}`}
-          rotation={-90 + from * 3.6}
+          rotation={-90}
           origin={`${c}, ${c}`}
         />
       ) : null}
