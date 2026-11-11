@@ -27,18 +27,24 @@ export function clockAt(ms: number): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+// 45 -> "45 min"; 185 -> "3h 05m" (long runs read better in hours).
+function duration(minutes: number): string {
+  if (minutes < 120) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
+}
+
 // The panel between Entrada and Salida; null when there is nothing to say.
 export function plantPill(plan: PlantPlan | null | undefined): PlantPill | null {
   if (!plan) return null;
   switch (plan.kind) {
     case 'plan':
       return plan.start_ts != null && plan.minutes != null
-        ? { text: `${clockAt(plan.start_ts * 1000)} · ${plan.minutes} min`, tone: 'amber' }
+        ? { text: `${clockAt(plan.start_ts * 1000)} · ${duration(plan.minutes)}`, tone: 'amber' }
         : null;
     case 'now':
-      return plan.minutes != null ? { text: `Ahora · ${plan.minutes} min`, tone: 'amber' } : null;
+      return plan.minutes != null ? { text: `Ahora · ${duration(plan.minutes)}`, tone: 'amber' } : null;
     case 'urgent':
-      return plan.minutes != null ? { text: `Ahora · ${plan.minutes} min`, tone: 'red' } : null;
+      return plan.minutes != null ? { text: `Ahora · ${duration(plan.minutes)}`, tone: 'red' } : null;
     case 'no_time':
       return { text: 'No da tiempo', tone: 'red' };
     case 'not_needed':
