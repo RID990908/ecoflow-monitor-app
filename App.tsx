@@ -309,7 +309,7 @@ export default function App() {
 
   // With any AC input there is no plant plan.
   const plantPlan = hasAc ? null : status?.plant_plan ?? null;
-  const pill = plantPill(plantPlan);
+  const pill = plantPill(plantPlan, pct);
 
   const centerFlow = status && status.ready ? (
     <>

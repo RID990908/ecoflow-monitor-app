@@ -8,7 +8,7 @@ export type PlantPlanKind = 'plan' | 'now' | 'urgent' | 'no_time' | 'not_needed'
 
 export type PlantPlan = {
   kind: PlantPlanKind;
-  // Epoch in seconds of the planned start (only for `plan`).
+  // Epoch in seconds of the planned start (only for `plan`; the pill no longer shows it).
   start_ts: number | null;
   minutes: number | null;
   // Fixed battery % that is enough to reach the next 08:00 with the reserve
@@ -36,18 +36,35 @@ function duration(minutes: number): string {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
 }
 
+// Quiet hours start at 22:00 (phone time); the plant plan is anchored to it.
+const QUIET_START_HOUR = 22;
+
+// Minutes from `nowMs` until the next 22:00 in the phone's time zone.
+function minutesToQuiet(nowMs: number): number {
+  const now = new Date(nowMs);
+  const quiet = new Date(nowMs);
+  quiet.setHours(QUIET_START_HOUR, 0, 0, 0);
+  return Math.max(0, (quiet.getTime() - now.getTime()) / 60000);
+}
+
 // The panel between Entrada and Salida; null when there is nothing to say.
-export function plantPill(plan: PlantPlan | null | undefined): PlantPill | null {
+// Before the plant has to start it only says "Ahora" (amber: it can be run any
+// time until 22:00); once the start time is reached it adds the minutes, and
+// goes red when less than an hour is left until 22:00.
+export function plantPill(
+  plan: PlantPlan | null | undefined,
+  percent: number,
+  nowMs: number = Date.now(),
+): PlantPill | null {
   if (!plan) return null;
   switch (plan.kind) {
     case 'plan':
-      return plan.start_ts != null && plan.minutes != null
-        ? { text: `${clockAt(plan.start_ts * 1000)} · ${duration(plan.minutes)}`, tone: 'amber' }
-        : null;
+      return plan.target_pct != null && percent < plan.target_pct ? { text: 'Ahora', tone: 'amber' } : null;
     case 'now':
-      return plan.minutes != null ? { text: `Ahora · ${duration(plan.minutes)}`, tone: 'amber' } : null;
     case 'urgent':
-      return plan.minutes != null ? { text: `Ahora · ${duration(plan.minutes)}`, tone: 'red' } : null;
+      return plan.minutes != null
+        ? { text: `Ahora · ${duration(plan.minutes)}`, tone: minutesToQuiet(nowMs) < 60 ? 'red' : 'amber' }
+        : null;
     case 'no_time':
       return { text: 'No da tiempo', tone: 'red' };
     case 'short':
@@ -57,22 +74,4 @@ export function plantPill(plan: PlantPlan | null | undefined): PlantPill | null 
     default:
       return null;
   }
-}
-
-// Plant icon over the ring (replaces the green dot): amber while there is a
-// plan, red when time is running out; none when the plant is not needed.
-export function plantIconTone(plan: PlantPlan | null | undefined): 'amber' | 'red' | null {
-  if (!plan) return null;
-  if (plan.kind === 'plan' || plan.kind === 'now') return 'amber';
-  if (plan.kind === 'urgent' || plan.kind === 'no_time' || plan.kind === 'short') return 'red';
-  return null;
-}
-
-// Where the translucent segment under the green arc ends: the fixed % that is
-// enough to reach the morning. Null when there is no target (the `short` state)
-// or the battery is already above it, so it only shows once the green drops
-// below that threshold.
-export function plantGhostTo(plan: PlantPlan | null | undefined, percent: number): number | null {
-  if (!plan || plan.target_pct == null) return null;
-  return plan.target_pct > percent ? Math.min(plan.target_pct, 100) : null;
 }
