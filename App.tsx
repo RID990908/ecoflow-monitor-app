@@ -31,8 +31,6 @@ import { LateralHook } from './components/icons/LateralHook';
 import { PlantPill } from './components/PlantPill';
 import {
   clockAt,
-  plantGhostTo,
-  plantIconTone,
   plantPill,
   type PlantPlan,
 } from './lib/plantNeed';
@@ -312,8 +310,6 @@ export default function App() {
   // With any AC input there is no plant plan.
   const plantPlan = hasAc ? null : status?.plant_plan ?? null;
   const pill = plantPill(plantPlan);
-  const plantTone = plantIconTone(plantPlan);
-  const ghostTo = plantGhostTo(plantPlan, pct);
 
   const centerFlow = status && status.ready ? (
     <>
@@ -388,9 +384,9 @@ export default function App() {
                   </Defs>
                   <Circle cx="50%" cy="50%" r="50%" fill="url(#ringGlow)" />
                 </Svg>
-                <PercentRing pct={pct} color={ringColor} ghostTo={ghostTo} />
+                <PercentRing pct={pct} color={ringColor} />
                 <View style={styles.ringInner}>
-                  <LiveDot live={!stale} plantTone={plantTone} />
+                  <LiveDot live={!stale} />
                   <Text style={styles.pct}>{status.percent != null ? status.percent.toFixed(1) : '--'}%</Text>
                   <Text style={styles.pctSubLabel}>{batteryFull ? 'Batería llena' : 'Tiempo restante'}</Text>
                   {batteryFull ? null : <Text style={styles.pctSubDur}>{status.remain_duration || '--'}</Text>}
@@ -465,7 +461,7 @@ export default function App() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },
   root: { flex: 1 },
-  scroll: { padding: 20, paddingTop: 24, alignItems: 'center', paddingBottom: 50 },
+  scroll: { padding: 20, paddingTop: 4, alignItems: 'center', paddingBottom: 50 },
   card: {
     backgroundColor: COLORS.card, borderColor: COLORS.border, borderWidth: 1, borderRadius: 14,
     padding: 16, width: '100%', maxWidth: 380,
