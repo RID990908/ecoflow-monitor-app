@@ -18,7 +18,6 @@ import type { FlowState } from './types';
 import { COLORS } from './theme';
 import { DiagramBackdrop } from './components/DiagramBackdrop';
 import { FlowPath } from './components/FlowPath';
-import { LiveDot } from './components/LiveDot';
 import { StatusBanner } from './components/StatusBanner';
 import { GridTowerIcon } from './components/icons/GridTowerIcon';
 import { UsbIcon } from './components/icons/UsbIcon';
@@ -416,7 +415,6 @@ export default function App() {
                 </Svg>
                 <LiquidSphere pct={pct} state={sphereState} targetPct={sphereTarget} size={RING} />
                 <View style={styles.ringInner}>
-                  <LiveDot live={!stale} />
                   <Text style={styles.pct}>{status.percent != null ? status.percent.toFixed(1) : '--'}%</Text>
                   <Text style={styles.pctSubLabel}>{batteryFull ? 'Batería llena' : 'Tiempo restante'}</Text>
                   {batteryFull ? null : <Text style={styles.pctSubDur}>{status.remain_duration || '--'}</Text>}
