@@ -63,7 +63,7 @@ const daylight = (h: number, sr: number, ss: number) =>
 // Point on the higher arc, p in 0..1 (same ellipse as the artboard, viewBox 390 wide).
 // The endpoints stay at the horizon while late-morning/noon positions rise higher.
 export const pos = (p: number): [number, number] => [
-  195 - 165 * Math.cos(Math.PI * p),
+  195 - 130 * Math.cos(Math.PI * p),
   120 - 60 * Math.sin(Math.PI * p),
 ];
 
@@ -90,7 +90,7 @@ export function litPath(f: number, r: number): string {
 export function elapsedPath(p: number): string | null {
   if (p < 0.005) return null;
   const [x, y] = pos(Math.min(p, 1));
-  return `M30 120 A165 60 0 ${p > 0.5 ? 1 : 0} 1 ${x.toFixed(1)} ${y.toFixed(1)}`;
+  return `M65 120 A130 60 0 ${p > 0.5 ? 1 : 0} 1 ${x.toFixed(1)} ${y.toFixed(1)}`;
 }
 
 export type CondKind = 'storm' | 'rain' | 'fog' | 'none';

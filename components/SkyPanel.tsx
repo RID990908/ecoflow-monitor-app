@@ -19,8 +19,8 @@ import { computeSky, litPath, rnd, type CondKind, type Sky } from '../lib/sky';
 const STAGE_W = 390;
 const STAGE_H = 150;
 // Give the arc room to breathe: the original 100px card clipped the sky scene.
-const STAGE_TOP = -18;
-const CARD_H = 132;
+const STAGE_TOP = -12;
+const CARD_H = 116;
 const TILE = 40; // rain tile height (vertical period)
 const USE_NATIVE = Platform.OS !== 'web';
 
@@ -317,7 +317,7 @@ export function SkyPanel({ sky, now }: { sky: Sky | null | undefined; now: numbe
             <Stars />
           </G>
           <Path
-            d="M30 120 A165 60 0 0 1 360 120"
+            d="M65 120 A130 60 0 0 1 325 120"
             fill="none"
             stroke="#fff"
             strokeOpacity={0.35}
@@ -486,8 +486,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 6,
+    bottom: 10,
     alignItems: 'center',
+    zIndex: 10,
+    elevation: 10,
   },
   chip: {
     flexDirection: 'row',
