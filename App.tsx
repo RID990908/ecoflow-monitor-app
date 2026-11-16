@@ -24,7 +24,8 @@ import { GridTowerIcon } from './components/icons/GridTowerIcon';
 import { UsbIcon } from './components/icons/UsbIcon';
 import { ArrowDownIcon } from './components/icons/ArrowDownIcon';
 import { ArrowUpIcon } from './components/icons/ArrowUpIcon';
-import { PercentRing } from './components/icons/PercentRing';
+import { LiquidSphere } from './components/LiquidSphere';
+import { SkyPanel } from './components/SkyPanel';
 import { IconCircle } from './components/icons/IconCircle';
 import { LateralIcon } from './components/icons/LateralIcon';
 import { LateralHook } from './components/icons/LateralHook';
@@ -50,6 +51,16 @@ const BOTTOM_USB = 'M 150,0 L 150,55 Q 150,65 160,65 L 215,65 Q 225,65 225,75 L 
 // Diámetro del anillo principal: 224 deja espacio a los nodos laterales dentro
 // de un ancho de 390 (con 240 el nodo derecho se salía ~7px de la pantalla).
 const RING = 224;
+
+// Text drawn over the liquid sphere: lighter tints of the same meaning (green / red /
+// neutral) plus a soft shadow, so it stays readable on both the yellow and the green liquid.
+const ON_LIQUID: Record<string, string> = { [COLORS.green]: '#d1fae5', [COLORS.red]: '#fecaca', [COLORS.dim]: '#e5e7eb' };
+const onLiquid = (color: string) => ON_LIQUID[color] ?? color;
+const ON_LIQUID_SHADOW = {
+  textShadowColor: 'rgba(0,0,0,0.65)',
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 6,
+} as const;
 
 const STATUS_POLL_MS = 1000;
 const FETCH_TIMEOUT_MS = 5000;
@@ -85,6 +96,18 @@ type StatusResponse = {
   threshold_ts?: number | null;
   threshold_pct?: number | null;
   plant_plan?: PlantPlan | null;
+  // Weather + sun times for the sky panel; null until the backend has fetched them.
+  sky?: {
+    cloud_pct: number;
+    code: number;
+    is_day: boolean;
+    sunrise_ts: number;
+    sunset_ts: number;
+    updated_ts: number;
+  } | null;
+  // Colour rule of the liquid sphere, decided by the backend: charging, at_risk
+  // (no charge and dawn goal not met) or ok (no charge but the goal is met).
+  sphere?: { state: 'charging' | 'at_risk' | 'ok'; dawn_pct: number | null; reserve_pct: number } | null;
   remain_duration?: string | null;
   ac_out_w: number;
   extra_in_w: number;
@@ -261,6 +284,13 @@ export default function App() {
   const ringColor = pct <= RING_RED_MAX_PCT ? COLORS.red : pct <= RING_YELLOW_MAX_PCT ? COLORS.yellow : COLORS.green;
   const solarFlow: FlowState = (status?.pv_w ?? 0) > 0 ? 'charging' : 'neutral';
 
+  // Liquid sphere: the backend decides the colour rule (sphere.state). The yellow
+  // zone ends at the plant plan's target % (the % needed to reach dawn). With an
+  // old backend (no sphere) the previous threshold colour is kept for the glow.
+  const sphereState = status?.sphere?.state ?? null;
+  const sphereTarget = status?.plant_plan?.target_pct ?? null;
+  const glowColor = sphereState === 'at_risk' ? COLORS.yellow : sphereState ? COLORS.green : ringColor;
+
   // Single source of truth for staleness: no success yet, last success too
   // old, or the backend reports it is not ready.
   const stale = lastSuccessAt == null || now - lastSuccessAt > STALE_AFTER_MS || !status?.ready;
@@ -378,20 +408,20 @@ export default function App() {
                 <Svg width={RING * 1.7} height={RING * 1.7} style={styles.ringGlow} pointerEvents="none">
                   <Defs>
                     <RadialGradient id="ringGlow" cx="50%" cy="50%" r="50%">
-                      <Stop offset="0.45" stopColor={ringColor} stopOpacity={0.14} />
-                      <Stop offset="1" stopColor={ringColor} stopOpacity={0} />
+                      <Stop offset="0.45" stopColor={glowColor} stopOpacity={0.14} />
+                      <Stop offset="1" stopColor={glowColor} stopOpacity={0} />
                     </RadialGradient>
                   </Defs>
                   <Circle cx="50%" cy="50%" r="50%" fill="url(#ringGlow)" />
                 </Svg>
-                <PercentRing pct={pct} color={ringColor} />
+                <LiquidSphere pct={pct} state={sphereState} targetPct={sphereTarget} size={RING} />
                 <View style={styles.ringInner}>
                   <LiveDot live={!stale} />
                   <Text style={styles.pct}>{status.percent != null ? status.percent.toFixed(1) : '--'}%</Text>
                   <Text style={styles.pctSubLabel}>{batteryFull ? 'Batería llena' : 'Tiempo restante'}</Text>
                   {batteryFull ? null : <Text style={styles.pctSubDur}>{status.remain_duration || '--'}</Text>}
                   {/* eta_text already says the direction ("Llena a las…", "Dura hasta las…"); the state word only fills in when there is none. */}
-                  <Text style={[styles.pctEta, { color: stateColor }]}>{ringLine}</Text>
+                  <Text style={[styles.pctEta, { color: onLiquid(stateColor) }]}>{ringLine}</Text>
                   {thresholdShort ? <Text style={styles.pctThreshold}>{thresholdShort}</Text> : null}
                 </View>
                 <View style={styles.lateralOverlayLeft}>
@@ -432,6 +462,12 @@ export default function App() {
                   <IconCircle emoji="🏠" state={acOutActive ? 'discharging' : 'neutral'} watts={`${status.ac_out_w ?? 0} W`} name="CA" />
                   <IconCircle icon={<UsbIcon />} state={usbActive ? 'discharging' : 'neutral'} watts={`${status.usb_out_w ?? 0} W`} name="USB" />
                 </View>
+              </View>
+
+              {/* Weather + sun/moon panel under the diagram. Driven by the device clock
+                  (`now`, ticks every second) and `status.sky` (backend refreshes it every 15 min). */}
+              <View style={styles.skyWrap}>
+                <SkyPanel sky={status.sky} now={now} />
               </View>
 
     </>
@@ -486,8 +522,8 @@ const styles = StyleSheet.create({
   ringWrap: { width: RING, height: RING, marginTop: 0, marginBottom: 0, alignItems: 'center', justifyContent: 'center' },
   ringGlow: { position: 'absolute' },
   ringInner: {
-    width: RING - 34, height: RING - 34, borderRadius: (RING - 34) / 2, backgroundColor: COLORS.disc,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+    // No disc of its own: the liquid sphere draws the disc behind the text.
+    width: RING - 34, height: RING - 34, borderRadius: (RING - 34) / 2,
     alignItems: 'center', justifyContent: 'center',
   },
   // Hooks laterales (Delta 2 propia / batería extra), anclados al borde del
@@ -498,12 +534,13 @@ const styles = StyleSheet.create({
   lateralOverlayRight: { position: 'absolute', left: RING, top: RING / 2, width: 0, height: 0 },
   lateralOverlayLeft: { position: 'absolute', left: 0, top: RING / 2, width: 0, height: 0 },
 
-  pct: { fontSize: 46, fontWeight: '700', color: COLORS.text, fontVariant: ['tabular-nums'] },
-  pctSubLabel: { fontSize: 13, color: COLORS.dim, marginTop: 8 },
-  pctSubDur: { fontSize: 21, color: '#e8edf2', fontWeight: '700', marginTop: 2, fontVariant: ['tabular-nums'] },
-  pctEta: { fontSize: 13, fontWeight: '600', marginTop: 4 },
-  pctThreshold: { fontSize: 12, fontWeight: '600', marginTop: 3, color: COLORS.red },
+  pct: { fontSize: 46, fontWeight: '700', color: COLORS.text, fontVariant: ['tabular-nums'], ...ON_LIQUID_SHADOW },
+  pctSubLabel: { fontSize: 13, color: '#e5e7eb', marginTop: 8, ...ON_LIQUID_SHADOW },
+  pctSubDur: { fontSize: 21, color: '#f3f6f9', fontWeight: '700', marginTop: 2, fontVariant: ['tabular-nums'], ...ON_LIQUID_SHADOW },
+  pctEta: { fontSize: 13, fontWeight: '600', marginTop: 4, ...ON_LIQUID_SHADOW },
+  pctThreshold: { fontSize: 12, fontWeight: '600', marginTop: 3, color: '#fecaca', ...ON_LIQUID_SHADOW },
 
+  skyWrap: { width: '100%', alignItems: 'center', marginTop: 24 },
   diagram: { width: '100%', alignItems: 'center' },
   diagramStale: { opacity: 0.45 },
 });
