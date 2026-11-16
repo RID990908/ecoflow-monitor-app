@@ -1,10 +1,23 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from 'react-native';
-import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  Ellipse,
+  LinearGradient,
+  Path,
+  RadialGradient,
+  Stop,
+} from 'react-native-svg';
 import { COLORS } from '../theme';
 import { sphereFill, type SphereState } from '../lib/sphere';
 
 export type { SphereState };
+
+// Ring between the outer border and the glass disc (design: 02-cristal-con-volumen).
+const BORDER = 2;
+const RIM_BG = '#0b1118';
+const RIM_BORDER = '#2a3646';
 
 function hexRgb(hex: string) {
   const n = parseInt(hex.slice(1), 16);
@@ -71,6 +84,62 @@ function Wave({
   );
 }
 
+// Glass over the liquid: light from the upper left, darker edge, soft glow at the
+// bottom, a glossy reflection and a thin rim. Static (no animation), whole disc.
+function GlassOverlay({
+  d, light, lightBottom, uid,
+}: { d: number; light: string; lightBottom: string; uid: string }) {
+  const c = d / 2;
+  const hx = d * 0.357;
+  const hy = d * 0.259;
+  const hrx = d * 0.241;
+  const hry = d * 0.098;
+  const id = (name: string) => `ls${name}${uid}`;
+  return (
+    <Svg width={d} height={d} style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Defs>
+        <RadialGradient id={id('Light')} cx="38%" cy="28%" r="72%">
+          <Stop offset="0%" stopColor={light} stopOpacity={0.4} />
+          <Stop offset="45%" stopColor={light} stopOpacity={0.1} />
+          <Stop offset="100%" stopColor={light} stopOpacity={0} />
+        </RadialGradient>
+        <RadialGradient id={id('Edge')} cx="50%" cy="46%" r="56%">
+          <Stop offset="0%" stopColor="#000" stopOpacity={0} />
+          <Stop offset="58%" stopColor="#000" stopOpacity={0} />
+          <Stop offset="100%" stopColor="#000" stopOpacity={0.5} />
+        </RadialGradient>
+        <RadialGradient id={id('Bottom')} cx="50%" cy="100%" r="62%">
+          <Stop offset="0%" stopColor={lightBottom} stopOpacity={0.38} />
+          <Stop offset="100%" stopColor={lightBottom} stopOpacity={0} />
+        </RadialGradient>
+        <LinearGradient
+          id={id('Gloss')}
+          x1="0"
+          y1={hy - hry}
+          x2="0"
+          y2={hy + hry}
+          gradientUnits="userSpaceOnUse"
+        >
+          <Stop offset="0%" stopColor="#fff" stopOpacity={0.4} />
+          <Stop offset="100%" stopColor="#fff" stopOpacity={0} />
+        </LinearGradient>
+      </Defs>
+      <Circle cx={c} cy={c} r={c} fill={`url(#${id('Light')})`} />
+      <Circle cx={c} cy={c} r={c} fill={`url(#${id('Edge')})`} />
+      <Circle cx={c} cy={c} r={c} fill={`url(#${id('Bottom')})`} />
+      <Ellipse
+        cx={hx}
+        cy={hy}
+        rx={hrx}
+        ry={hry}
+        fill={`url(#${id('Gloss')})`}
+        transform={`rotate(-26 ${hx} ${hy})`}
+      />
+      <Circle cx={c} cy={c} r={c - 0.5} fill="none" stroke="#fff" strokeOpacity={0.2} strokeWidth={1} />
+    </Svg>
+  );
+}
+
 // Liquid battery sphere. Square `size` x `size`, absolutely positioned (the
 // parent centres it); only draws the sphere, text goes on top.
 export function LiquidSphere({
@@ -85,8 +154,10 @@ export function LiquidSphere({
   size?: number;
 }) {
   const level = Math.min(Math.max(Number.isFinite(pct) ? pct : 0, 0), 100);
-  const amp = size * 0.025;
-  const { stops, glow } = sphereFill(state, level, targetPct);
+  const inset = Math.round(size * 0.027);
+  const d = size - BORDER * 2 - inset * 2; // diameter of the glass disc
+  const amp = d * 0.025;
+  const { stops, glow, light, lightBottom } = sphereFill(state, level, targetPct);
   const rgb = hexRgb(glow);
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const native = Platform.OS !== 'web';
@@ -94,7 +165,7 @@ export function LiquidSphere({
 
   const levelAnim = useRef(new Animated.Value(level)).current;
   const front = useRef(new Animated.Value(0)).current;
-  const back = useRef(new Animated.Value(-size / 2)).current;
+  const back = useRef(new Animated.Value(-d / 2)).current;
 
   useEffect(() => {
     if (reduce) {
@@ -111,7 +182,7 @@ export function LiquidSphere({
   useEffect(() => {
     if (reduce) {
       front.setValue(0);
-      back.setValue(-size / 2);
+      back.setValue(-d / 2);
       return;
     }
     const loop = (v: Animated.Value, from: number, to: number, ms: number) => {
@@ -122,17 +193,17 @@ export function LiquidSphere({
       l.start();
       return l;
     };
-    const f = loop(front, 0, -size, 6000);
-    const b = loop(back, -size, 0, 9000); // opposite direction/phase
+    const f = loop(front, 0, -d, 6000);
+    const b = loop(back, -d, 0, 9000); // opposite direction/phase
     return () => {
       f.stop();
       b.stop();
     };
-  }, [reduce, size, front, back, native]);
+  }, [reduce, d, front, back, native]);
 
   const translateY = levelAnim.interpolate({
     inputRange: [0, 100],
-    outputRange: [size, -amp * 2],
+    outputRange: [d, -amp * 2],
   });
 
   return (
@@ -147,37 +218,35 @@ export function LiquidSphere({
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: COLORS.disc,
-          borderWidth: 2,
-          borderColor: 'rgba(71,85,105,0.78)',
+          backgroundColor: RIM_BG,
+          borderWidth: BORDER,
+          borderColor: RIM_BORDER,
         },
         Platform.OS === 'web'
-          ? ({ boxShadow: `0 0 28px rgba(${rgb},0.22)` } as object)
-          : { shadowColor: glow, shadowOpacity: 0.22, shadowRadius: 14, shadowOffset: { width: 0, height: 0 } },
+          ? ({ boxShadow: `0 0 24px rgba(${rgb},0.3)` } as object)
+          : { shadowColor: glow, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
       ]}
     >
       <View
         style={{
-          ...StyleSheet.absoluteFill,
-          borderRadius: size / 2,
+          position: 'absolute',
+          left: inset,
+          top: inset,
+          width: d,
+          height: d,
+          borderRadius: d / 2,
           overflow: 'hidden',
+          backgroundColor: COLORS.disc,
         }}
       >
         <Animated.View
-          style={{ position: 'absolute', left: 0, top: 0, width: size, height: size + amp * 2, transform: [{ translateY }] }}
+          style={{ position: 'absolute', left: 0, top: 0, width: d, height: d + amp * 2, transform: [{ translateY }] }}
         >
-          <Wave size={size} amp={amp} gradId={`lsb${uid}`} stops={stops} x={back} opacity={0.38} />
-          <Wave size={size} amp={amp} gradId={`lsf${uid}`} stops={stops} x={front} opacity={1} />
+          <Wave size={d} amp={amp} gradId={`lsb${uid}`} stops={stops} x={back} opacity={0.38} />
+          <Wave size={d} amp={amp} gradId={`lsf${uid}`} stops={stops} x={front} opacity={1} />
         </Animated.View>
+        <GlassOverlay d={d} light={light} lightBottom={lightBottom} uid={uid} />
       </View>
-      <View
-        style={{
-          ...StyleSheet.absoluteFill,
-          borderRadius: size / 2,
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.08)',
-        }}
-      />
     </View>
   );
 }
