@@ -46,13 +46,26 @@ function Wave({
     >
       <Svg width={size * 2} height={h}>
         <Defs>
-          <LinearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <LinearGradient
+            id={gradId}
+            x1="0"
+            y1="0"
+            x2="0"
+            y2={h}
+            gradientUnits="userSpaceOnUse"
+          >
             {stops.map((s, i) => (
-              <Stop key={i} offset={s.offset} stopColor={s.color} />
+              <Stop key={i} offset={`${s.offset * 100}%`} stopColor={s.color} />
             ))}
           </LinearGradient>
         </Defs>
-        <Path d={wavePath(size, amp, h)} fill={`url(#${gradId})`} />
+        <Path
+          d={wavePath(size, amp, h)}
+          fill={`url(#${gradId})`}
+          stroke={stops[0]?.color}
+          strokeOpacity={0.3}
+          strokeWidth={1.5}
+        />
       </Svg>
     </Animated.View>
   );
