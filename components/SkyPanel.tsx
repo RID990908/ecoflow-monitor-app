@@ -25,12 +25,12 @@ const TILE = 40; // rain tile height (vertical period)
 const USE_NATIVE = Platform.OS !== 'web';
 
 const CLOUD_SPOTS: [number, number, number][] = [
-  [60, 88, 0.7],
-  [250, 72, 0.8],
-  [140, 102, 0.6],
-  [330, 98, 0.6],
-  [195, 86, 0.9],
-  [30, 106, 0.55],
+  [60, 56, 0.7],
+  [250, 40, 0.8],
+  [140, 70, 0.6],
+  [330, 66, 0.6],
+  [195, 54, 0.9],
+  [30, 74, 0.55],
 ];
 const CLOUD_PARTS = [
   [0, 0, 40, 14],
@@ -317,7 +317,7 @@ export function SkyPanel({ sky, now }: { sky: Sky | null | undefined; now: numbe
             <Stars />
           </G>
           <Path
-            d="M65 120 A130 60 0 0 1 325 120"
+            d="M65 88 A130 60 0 0 1 325 88"
             fill="none"
             stroke="#fff"
             strokeOpacity={0.35}
@@ -438,16 +438,48 @@ export function SkyPanel({ sky, now }: { sky: Sky | null | undefined; now: numbe
         )}
       </View>
 
-      {/* Low ridges */}
+      {/* Coastal horizon and sea: the sun reflection tracks the computed sun position. */}
       <Svg
-        style={{ position: 'absolute', left: 0, right: 0, top: 60 }}
+        pointerEvents="none"
+        style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}
         width="100%"
-        height={40}
-        viewBox="0 0 390 40"
+        height="100%"
+        viewBox="0 0 390 116"
         preserveAspectRatio="none"
       >
-        <Path fill={v.ridge1} d="M0 18 Q70 6 140 14 T270 10 T390 6 V40 H0Z" />
-        <Path fill={v.ridge2} d="M0 30 Q90 22 190 28 T390 24 V40 H0Z" />
+        <Defs>
+          <LinearGradient id="coastSea" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={v.ridge1} stopOpacity={0.82} />
+            <Stop offset="1" stopColor={v.ridge2} stopOpacity={0.96} />
+          </LinearGradient>
+          <LinearGradient id="coastGlint" x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor={v.sunCore} stopOpacity={0} />
+            <Stop offset="0.5" stopColor={v.sunCore} stopOpacity={0.72} />
+            <Stop offset="1" stopColor={v.sunCore} stopOpacity={0} />
+          </LinearGradient>
+        </Defs>
+        <Path d="M0 75 Q70 72 138 75 T274 74 Q336 71 390 75 V116 H0Z" fill="url(#coastSea)" />
+        {v.body === 'sun' && (
+          <>
+            <Path
+              d={`M${(bx - 16).toFixed(1)} 78 Q${(bx - 8).toFixed(1)} 87 ${bx.toFixed(1)} 91 Q${(bx + 8).toFixed(1)} 87 ${(bx + 16).toFixed(1)} 78`}
+              fill="url(#coastGlint)"
+              opacity={Math.max(0.15, v.bodyOpacity)}
+            />
+            <Path
+              d={`M${(bx - 9).toFixed(1)} 98 Q${bx.toFixed(1)} 95 ${(bx + 10).toFixed(1)} 99 M${(bx - 5).toFixed(1)} 106 Q${bx.toFixed(1)} 104 ${(bx + 6).toFixed(1)} 107`}
+              fill="none"
+              stroke={v.sunCore}
+              strokeOpacity={Math.max(0.12, v.bodyOpacity * 0.45)}
+              strokeWidth={1.2}
+              strokeLinecap="round"
+            />
+          </>
+        )}
+        {/* Small headlands frame the water without crossing the sun arc or weather chip. */}
+        <Path d="M0 74 Q18 67 38 71 Q51 73 66 77 Q35 80 0 81Z" fill={v.ridge2} />
+        <Path d="M390 74 Q371 67 352 71 Q338 73 324 77 Q355 80 390 81Z" fill={v.ridge2} />
+        <Path d="M20 88 Q57 85 92 88 M282 90 Q321 86 359 89" fill="none" stroke="#e8f3f2" strokeOpacity={0.22} strokeWidth={1} />
       </Svg>
 
       {/* Weather chip: icon + name only */}
@@ -486,7 +518,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 10,
+    bottom: 0,
     alignItems: 'center',
     zIndex: 10,
     elevation: 10,
