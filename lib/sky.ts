@@ -87,10 +87,13 @@ export function litPath(f: number, r: number): string {
 }
 
 // Elapsed part of the arc as a real partial elliptical arc (no pathLength needed).
+// The whole arc is the upper half of the ellipse (at most 180 degrees), so the
+// large-arc flag is always 0; with 1 the browser picks a different ellipse once
+// the sun passes the middle and the line leaves the card.
 export function elapsedPath(p: number): string | null {
   if (p < 0.005) return null;
   const [x, y] = pos(Math.min(p, 1));
-  return `M10 83 A185 55 0 ${p > 0.5 ? 1 : 0} 1 ${x.toFixed(1)} ${y.toFixed(1)}`;
+  return `M10 83 A185 55 0 0 1 ${x.toFixed(1)} ${y.toFixed(1)}`;
 }
 
 export type CondKind = 'storm' | 'rain' | 'fog' | 'none';
