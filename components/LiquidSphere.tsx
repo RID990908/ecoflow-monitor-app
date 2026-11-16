@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Defs, Ellipse, LinearGradient, Path, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { COLORS } from '../theme';
 import { sphereFill, type SphereState } from '../lib/sphere';
 
@@ -148,6 +148,8 @@ export function LiquidSphere({
           height: size,
           borderRadius: size / 2,
           backgroundColor: COLORS.disc,
+          borderWidth: 2,
+          borderColor: 'rgba(71,85,105,0.78)',
         },
         Platform.OS === 'web'
           ? ({ boxShadow: `0 0 28px rgba(${rgb},0.22)` } as object)
@@ -161,40 +163,6 @@ export function LiquidSphere({
           overflow: 'hidden',
         }}
       >
-        <Svg
-          width={size}
-          height={size}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        >
-          <Defs>
-            <RadialGradient
-              id={`lsd${uid}`}
-              cx="32%"
-              cy="22%"
-              rx="78%"
-              ry="78%"
-            >
-              <Stop offset="0%" stopColor="#ffffff" stopOpacity={0.24} />
-              <Stop offset="28%" stopColor={stops[0]?.color} stopOpacity={0.56} />
-              <Stop offset="100%" stopColor={stops[1]?.color} stopOpacity={0.98} />
-            </RadialGradient>
-          </Defs>
-          <Circle
-            cx={size / 2}
-            cy={size / 2}
-            r={size / 2}
-            fill={`url(#lsd${uid})`}
-          />
-          <Ellipse
-            cx={size * 0.36}
-            cy={size * 0.22}
-            rx={size * 0.19}
-            ry={size * 0.08}
-            fill="#ffffff"
-            fillOpacity={0.13}
-          />
-        </Svg>
         <Animated.View
           style={{ position: 'absolute', left: 0, top: 0, width: size, height: size + amp * 2, transform: [{ translateY }] }}
         >

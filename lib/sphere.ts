@@ -21,7 +21,10 @@ export function sphereFill(
   targetPct?: number | null,
 ): SphereFill {
   if (state === 'at_risk') return { stops: solid(YELLOW), glow: YELLOW.glow };
-  if (state !== 'charging' || targetPct == null) return { stops: solid(GREEN), glow: GREEN.glow };
+  if (state !== 'charging') return { stops: solid(GREEN), glow: GREEN.glow };
+  // While charging, keep the liquid itself yellow like the reference state;
+  // the dark empty portion above the level communicates the remaining fill.
+  if (targetPct == null) return { stops: solid(YELLOW), glow: YELLOW.glow };
 
   const level = Math.min(Math.max(pct, 0), 100);
   const target = Math.min(Math.max(targetPct, 0), 100);
