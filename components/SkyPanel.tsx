@@ -18,8 +18,9 @@ import { computeSky, litPath, rnd, type CondKind, type Sky } from '../lib/sky';
 // (the card shows stage y 32..132). Gradients only, no filters/blur: light on low-end Android.
 const STAGE_W = 390;
 const STAGE_H = 150;
-const STAGE_TOP = -32;
-const CARD_H = 100;
+// Give the arc room to breathe: the original 100px card clipped the sky scene.
+const STAGE_TOP = -18;
+const CARD_H = 132;
 const TILE = 40; // rain tile height (vertical period)
 const USE_NATIVE = Platform.OS !== 'web';
 
