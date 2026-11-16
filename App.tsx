@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   pctEta: { fontSize: 13, fontWeight: '600', marginTop: 4, ...ON_LIQUID_SHADOW },
   pctThreshold: { fontSize: 12, fontWeight: '600', marginTop: 3, color: '#fecaca', ...ON_LIQUID_SHADOW },
 
-  skyWrap: { width: '100%', alignItems: 'center', marginTop: 24 },
+  skyWrap: { width: '100%', alignItems: 'center', marginTop: -8 },
   diagram: { width: '100%', alignItems: 'center' },
   diagramStale: { opacity: 0.45 },
 });
