@@ -1,0 +1,13 @@
+{
+  "title": "Indicador lateral de batería · opción B",
+  "brief": "Opción B elegida: celda vertical segmentada con acabado de cristal. Cuatro porciones representan 25% cada una; el ejemplo 62% muestra dos llenas y parte de la tercera. Se presenta en tres estados de flujo.",
+  "artboards": [
+    {
+      "file": "01-alternativas.html",
+      "title": "B · Celda de cristal en cuatro porciones",
+      "tradeoff": "Silueta familiar y lectura compacta; cada cuarto es claro y permite indicar niveles intermedios con una porción parcial",
+      "width": 960,
+      "height": 850
+    }
+  ]
+}

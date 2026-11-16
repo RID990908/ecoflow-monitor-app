@@ -31,7 +31,7 @@ export function LateralIcon({
   return (
     <View style={side === 'right' ? styles.lateralIconRight : styles.lateralIconLeft}>
       <View style={[styles.lateralIconCircle, { backgroundColor: flowBg(state) }, flowNodeStyle(state)]}>
-        <BatteryIcon state={state} size={17} />
+        <BatteryIcon state={state} pct={pct} size={17} />
       </View>
       <Text style={styles.lateralIconWatts}>{watts}</Text>
       <Text style={styles.lateralIconName}>{name}</Text>

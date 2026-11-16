@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B · Celda de cristal refinada</title>
+<style>
+:root{--bg:#090d12;--card:#121921;--line:#232c36;--text:#f5f7fa;--dim:#9aa6b3;--faint:#8593a3;--green:#4ade80;--red:#f87171;--node:#18202a;--green-bg:#112d1c;--red-bg:#331616}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:32px}
+main{max-width:960px;margin:0 auto}header{max-width:800px;margin:0 auto 30px}h1{font-size:25px;line-height:1.2;margin:0 0 9px;letter-spacing:-.4px}header p{margin:0;color:var(--dim);font-size:14px;line-height:1.55}.eyebrow{text-transform:uppercase;letter-spacing:1.4px;font-size:10px;color:var(--green);font-weight:750;margin-bottom:8px}
+.hero{padding:22px 24px 24px;border:1px solid rgba(74,222,128,.32);border-radius:22px;background:linear-gradient(145deg,rgba(74,222,128,.055),transparent 52%),var(--card);box-shadow:0 18px 50px rgba(0,0,0,.2)}.herohead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.hero h2{font-size:17px;margin:0}.herohead p{color:var(--dim);font-size:12px;line-height:1.5;max-width:470px;margin:6px 0 0}.badge{flex:none;border:1px solid rgba(74,222,128,.28);border-radius:999px;padding:6px 10px;color:#b5f3c9;font-size:10px;letter-spacing:.7px;font-weight:700}
+.states{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:22px}.state{background:#0e141b;border:1px solid var(--line);border-radius:17px;padding:20px 12px 16px;display:flex;justify-content:center;min-width:0}.node{width:110px;text-align:center}.circle{width:68px;height:68px;margin:auto;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 38% 25%,#26313d,var(--node) 72%);border:1.5px solid #303b48;color:#aebbc8;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}.circle svg{width:32px;height:32px;display:block}
+.charging .circle{background:radial-gradient(circle at 35% 20%,#1f4b31,var(--green-bg) 74%);border-color:rgba(74,222,128,.64);box-shadow:inset 0 1px 0 rgba(255,255,255,.11),0 0 0 4px rgba(74,222,128,.07),0 0 24px rgba(74,222,128,.22);color:var(--green)}.discharging .circle{background:radial-gradient(circle at 35% 20%,#552b2b,var(--red-bg) 74%);border-color:rgba(248,113,113,.64);box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 0 0 4px rgba(248,113,113,.06),0 0 20px rgba(248,113,113,.19);color:var(--red)}
+/* B: four glass cells, 25% each; 62% fills two plus 48% of the third */
+.cell{width:24px;height:34px;border:1.4px solid currentColor;border-radius:8px;padding:4px 3px 3px;display:flex;flex-direction:column-reverse;gap:1.5px;position:relative;background:linear-gradient(145deg,rgba(255,255,255,.13),rgba(255,255,255,.018));box-shadow:inset 1px 0 rgba(255,255,255,.2),inset -1px 0 rgba(0,0,0,.25),0 0 11px color-mix(in srgb,currentColor 15%,transparent)}
+.cell:before{content:"";position:absolute;width:10px;height:3px;background:currentColor;top:-4px;left:5.7px;border-radius:3px 3px 1px 1px;box-shadow:0 0 7px currentColor;opacity:.88}
+.cell i{height:5px;border-radius:2px;background:rgba(255,255,255,.13)}.cell i:nth-child(-n+2){background:currentColor;box-shadow:0 0 5px currentColor}.cell i:nth-child(3){background:linear-gradient(90deg,currentColor 48%,rgba(255,255,255,.13) 48%)}
+.watts{font-size:12px;color:var(--dim);margin-top:11px;white-space:nowrap}.label{font-size:9px;color:var(--faint);letter-spacing:1px;font-weight:700;text-transform:uppercase;margin-top:4px;white-space:nowrap}.pct{font-size:16px;color:#e5e7eb;font-weight:750;font-variant-numeric:tabular-nums;margin-top:7px}.remain{font-size:11px;color:var(--faint);margin-top:4px;white-space:nowrap}.charging .remain{color:var(--green)}.discharging .remain{color:var(--red)}
+.caption{font-size:10px;line-height:1.4;color:var(--faint);margin-top:12px;text-align:center}.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}.note{border-top:1px solid var(--line);padding:10px 4px 0}.note b{display:block;font-size:11px;margin-bottom:4px}.note span{display:block;color:var(--dim);font-size:11px;line-height:1.45}
+footer{color:var(--faint);font-size:11px;line-height:1.5;margin:18px 2px 0}
+@media(max-width:650px){body{padding:18px}.hero{padding:18px 14px}.herohead{display:block}.badge{display:inline-block;margin-top:12px}.states{gap:7px}.state{padding:15px 4px}.node{width:100%}.circle{width:58px;height:58px}.circle svg{width:28px;height:28px}.cell{transform:scale(.88)}.notes{grid-template-columns:1fr;gap:4px}.note{padding:8px 0}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<header><div class="eyebrow">Propuesta B · refinada</div><h1>Celda vertical de cristal</h1><p>Un indicador compacto y familiar, actualizado con una carcasa translúcida, reflejo sutil y segmentos de carga nítidos. La cantidad de segmentos iluminados sigue el nivel; el color y el texto indican la dirección del flujo.</p></header>
+<section class="hero" aria-labelledby="option-title">
+<div class="herohead"><div><h2 id="option-title">El mismo nodo, tres estados</h2><p>Conserva el tamaño y la estructura del diagrama actual. Los segmentos muestran el nivel; el halo y la etiqueta distinguen la actividad.</p></div><span class="badge">B · CELDA CRISTAL</span></div>
+<div class="states">
+<div class="state charging"><div class="node"><div class="circle" role="img" aria-label="Batería al 62 por ciento, cargando"><span class="cell"><i></i><i></i><i></i><i></i></span></div><div class="watts">300 W</div><div class="label">DELTA 2 · ENTRA</div><div class="pct">62%</div><div class="remain">Cargando</div></div></div>
+<div class="state discharging"><div class="node"><div class="circle" role="img" aria-label="Batería al 62 por ciento, descargando"><span class="cell"><i></i><i></i><i></i><i></i></span></div><div class="watts">90 W</div><div class="label">BATERÍA · SALE</div><div class="pct">62%</div><div class="remain">Descargando</div></div></div>
+<div class="state neutral"><div class="node"><div class="circle" role="img" aria-label="Batería al 62 por ciento, en espera"><span class="cell"><i></i><i></i><i></i><i></i></span></div><div class="watts">0 W</div><div class="label">BATERÍA</div><div class="pct">62%</div><div class="remain">En espera</div></div></div>
+</div>
+<div class="caption">62 % = dos porciones completas (50 %) + 12 puntos en la tercera · cada celda completa representa 25 %</div>
+</section>
+<section class="notes" aria-label="Características de la propuesta"><div class="note"><b>Más actual</b><span>Contorno fino, reflejo interno y brillo controlado en el terminal.</span></div><div class="note"><b>Fácil de leer</b><span>Tres segmentos grandes siguen siendo reconocibles en el nodo pequeño.</span></div><div class="note"><b>Sin datos duplicados en el icono</b><span>El porcentaje exacto permanece debajo, donde ya aparece en la app.</span></div></section>
+<footer>Propuesta visual únicamente. No modifica la app; si esta versión te convence, puedo llevarla al icono real.</footer>
+</main>
+</body>
+</html>
