@@ -317,7 +317,7 @@ export function SkyPanel({ sky, now }: { sky: Sky | null | undefined; now: numbe
             <Stars />
           </G>
           <Path
-            d="M65 88 A130 60 0 0 1 325 88"
+            d="M10 83 A185 55 0 0 1 380 83"
             fill="none"
             stroke="#fff"
             strokeOpacity={0.35}
