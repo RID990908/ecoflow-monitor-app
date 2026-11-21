@@ -24,9 +24,10 @@ import { UsbIcon } from './components/icons/UsbIcon';
 import { ArrowDownIcon } from './components/icons/ArrowDownIcon';
 import { ArrowUpIcon } from './components/icons/ArrowUpIcon';
 import { LiquidSphere } from './components/LiquidSphere';
-import { SkyPanel } from './components/SkyPanel';
+import { sphereFill } from './lib/sphere';
 import { IconCircle } from './components/icons/IconCircle';
 import { LateralIcon } from './components/icons/LateralIcon';
+import { weatherEmoji, type Sky } from './lib/weather';
 import { LateralHook } from './components/icons/LateralHook';
 import { PlantPill } from './components/PlantPill';
 import {
@@ -68,18 +69,14 @@ const STALE_AFTER_MS = 10000;
 
 const API_BASE = 'https://ecoflow-monitor-production.up.railway.app';
 
-// Umbrales de color del ring principal (rojo/amarillo/verde). Mismos valores
-// que RING_RED_MAX_PCT/RING_YELLOW_MAX_PCT en el dashboard web — si cambian
-// acá, cambiarlos ahí también para que no queden desincronizados.
-const RING_RED_MAX_PCT = 10;
-const RING_YELLOW_MAX_PCT = 20;
-
 type StatusResponse = {
   ready: boolean;
   error?: string;
   percent?: number | null;
   soc_delta2?: number | null;
   soc_extra?: number | null;
+  // Discharge limit set on the device (%): the battery floor, shown on the sphere.
+  min_dsg_soc?: number | null;
   pv_w?: number;
   ac_w?: number;
   delta2_net_w?: number | null;
@@ -95,18 +92,8 @@ type StatusResponse = {
   threshold_ts?: number | null;
   threshold_pct?: number | null;
   plant_plan?: PlantPlan | null;
-  // Weather + sun times for the sky panel; null until the backend has fetched them.
-  sky?: {
-    cloud_pct: number;
-    code: number;
-    is_day: boolean;
-    sunrise_ts: number;
-    sunset_ts: number;
-    updated_ts: number;
-  } | null;
-  // Colour rule of the liquid sphere, decided by the backend: charging, at_risk
-  // (no charge and dawn goal not met) or ok (no charge but the goal is met).
-  sphere?: { state: 'charging' | 'at_risk' | 'ok'; dawn_pct: number | null; reserve_pct: number } | null;
+  // Weather for the Solar node icon; null until the backend has fetched it.
+  sky?: Sky | null;
   remain_duration?: string | null;
   ac_out_w: number;
   extra_in_w: number;
@@ -280,15 +267,10 @@ export default function App() {
   }, [loadStatus]);
 
   const pct = status?.percent ?? 0;
-  const ringColor = pct <= RING_RED_MAX_PCT ? COLORS.red : pct <= RING_YELLOW_MAX_PCT ? COLORS.yellow : COLORS.green;
   const solarFlow: FlowState = (status?.pv_w ?? 0) > 0 ? 'charging' : 'neutral';
 
-  // Liquid sphere: the backend decides the colour rule (sphere.state). The yellow
-  // zone ends at the plant plan's target % (the % needed to reach dawn). With an
-  // old backend (no sphere) the previous threshold colour is kept for the glow.
-  const sphereState = status?.sphere?.state ?? null;
-  const sphereTarget = status?.plant_plan?.target_pct ?? null;
-  const glowColor = sphereState === 'at_risk' ? COLORS.yellow : sphereState ? COLORS.green : ringColor;
+  // Liquid sphere and its halo share one colour, decided only by the battery %.
+  const glowColor = sphereFill(pct).glow;
 
   // Single source of truth for staleness: no success yet, last success too
   // old, or the backend reports it is not ready.
@@ -315,6 +297,8 @@ export default function App() {
     status?.threshold_ts != null && status.threshold_pct != null
       ? `${status.threshold_pct}% a las ${clockAt(status.threshold_ts * 1000)}`
       : status?.threshold_short;
+  // Without a time to the limit (charging, steady), still show the limit itself.
+  const limitLine = thresholdShort ?? (status?.min_dsg_soc != null ? `Límite ${Math.round(status.min_dsg_soc)}%` : null);
   const stateWord = inW > outW ? 'Cargando' : inW < outW ? 'Descargando' : 'Usando';
   const stateColor =
     stateWord === 'Usando'
@@ -381,7 +365,7 @@ export default function App() {
                     />
                   </View>
                   <View style={styles.topNode}>
-                    <IconCircle emoji="☀️" state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
+                    <IconCircle emoji={weatherEmoji(status.sky)} state={solarFlow} watts={`${status.pv_w ?? 0} W`} name="Solar" />
                   </View>
                 </View>
                 <Svg width={300} height={130} viewBox="0 0 300 130" style={styles.flowConnectorsTop}>
@@ -413,14 +397,14 @@ export default function App() {
                   </Defs>
                   <Circle cx="50%" cy="50%" r="50%" fill="url(#ringGlow)" />
                 </Svg>
-                <LiquidSphere pct={pct} state={sphereState} targetPct={sphereTarget} size={RING} />
+                <LiquidSphere pct={pct} size={RING} />
                 <View style={styles.ringInner}>
                   <Text style={styles.pct}>{status.percent != null ? status.percent.toFixed(1) : '--'}%</Text>
                   <Text style={styles.pctSubLabel}>{batteryFull ? 'Batería llena' : 'Tiempo restante'}</Text>
                   {batteryFull ? null : <Text style={styles.pctSubDur}>{status.remain_duration || '--'}</Text>}
                   {/* eta_text already says the direction ("Llena a las…", "Dura hasta las…"); the state word only fills in when there is none. */}
                   <Text style={[styles.pctEta, { color: onLiquid(stateColor) }]}>{ringLine}</Text>
-                  {thresholdShort ? <Text style={styles.pctThreshold}>{thresholdShort}</Text> : null}
+                  {limitLine ? <Text style={styles.pctThreshold}>{limitLine}</Text> : null}
                 </View>
                 <View style={styles.lateralOverlayLeft}>
                   <LateralHook side="left" charging={delta2Charging} discharging={delta2Discharging} dashOffset={flowDashOffsetLateral} />
@@ -460,12 +444,6 @@ export default function App() {
                   <IconCircle emoji="🏠" state={acOutActive ? 'discharging' : 'neutral'} watts={`${status.ac_out_w ?? 0} W`} name="CA" />
                   <IconCircle icon={<UsbIcon />} state={usbActive ? 'discharging' : 'neutral'} watts={`${status.usb_out_w ?? 0} W`} name="USB" />
                 </View>
-              </View>
-
-              {/* Weather + sun/moon panel under the diagram. Driven by the device clock
-                  (`now`, ticks every second) and `status.sky` (backend refreshes it every 15 min). */}
-              <View style={styles.skyWrap}>
-                <SkyPanel sky={status.sky} now={now} />
               </View>
 
     </>
@@ -538,7 +516,6 @@ const styles = StyleSheet.create({
   pctEta: { fontSize: 13, fontWeight: '600', marginTop: 4, ...ON_LIQUID_SHADOW },
   pctThreshold: { fontSize: 12, fontWeight: '600', marginTop: 3, color: '#fecaca', ...ON_LIQUID_SHADOW },
 
-  skyWrap: { width: '100%', alignItems: 'center', marginTop: 8 },
   diagram: { width: '100%', alignItems: 'center' },
   diagramStale: { opacity: 0.45 },
 });

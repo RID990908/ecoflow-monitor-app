@@ -10,9 +10,8 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 import { COLORS } from '../theme';
-import { sphereFill, type SphereState } from '../lib/sphere';
+import { sphereFill } from '../lib/sphere';
 
-export type { SphereState };
 
 // Ring between the outer border and the glass disc (design: 02-cristal-con-volumen).
 const BORDER = 2;
@@ -87,8 +86,8 @@ function Wave({
 // Glass over the liquid: light from the upper left, darker edge, soft glow at the
 // bottom, a glossy reflection and a thin rim. Static (no animation), whole disc.
 function GlassOverlay({
-  d, light, lightBottom, uid,
-}: { d: number; light: string; lightBottom: string; uid: string }) {
+  d, light, uid,
+}: { d: number; light: string; uid: string }) {
   const c = d / 2;
   const hx = d * 0.357;
   const hy = d * 0.259;
@@ -109,8 +108,8 @@ function GlassOverlay({
           <Stop offset="100%" stopColor="#000" stopOpacity={0.5} />
         </RadialGradient>
         <RadialGradient id={id('Bottom')} cx="50%" cy="100%" r="62%">
-          <Stop offset="0%" stopColor={lightBottom} stopOpacity={0.38} />
-          <Stop offset="100%" stopColor={lightBottom} stopOpacity={0} />
+          <Stop offset="0%" stopColor={light} stopOpacity={0.38} />
+          <Stop offset="100%" stopColor={light} stopOpacity={0} />
         </RadialGradient>
         <LinearGradient
           id={id('Gloss')}
@@ -144,20 +143,16 @@ function GlassOverlay({
 // parent centres it); only draws the sphere, text goes on top.
 export function LiquidSphere({
   pct,
-  state,
-  targetPct = null,
   size = 224,
 }: {
   pct: number;
-  state: SphereState;
-  targetPct?: number | null;
   size?: number;
 }) {
   const level = Math.min(Math.max(Number.isFinite(pct) ? pct : 0, 0), 100);
   const inset = Math.round(size * 0.027);
   const d = size - BORDER * 2 - inset * 2; // diameter of the glass disc
   const amp = d * 0.025;
-  const { stops, glow, light, lightBottom } = sphereFill(state, level, targetPct);
+  const { stops, glow, light } = sphereFill(level);
   const rgb = hexRgb(glow);
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const native = Platform.OS !== 'web';
@@ -245,7 +240,7 @@ export function LiquidSphere({
           <Wave size={d} amp={amp} gradId={`lsb${uid}`} stops={stops} x={back} opacity={0.38} />
           <Wave size={d} amp={amp} gradId={`lsf${uid}`} stops={stops} x={front} opacity={1} />
         </Animated.View>
-        <GlassOverlay d={d} light={light} lightBottom={lightBottom} uid={uid} />
+        <GlassOverlay d={d} light={light} uid={uid} />
       </View>
     </View>
   );
