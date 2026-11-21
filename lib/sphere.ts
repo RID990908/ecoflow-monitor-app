@@ -1,6 +1,6 @@
 // Colour rule of the liquid sphere (pure, unit-testable): one solid colour,
 // decided only by the battery %. Decimals count (19.9 is already red).
-export type SphereFill = {
+type SphereFill = {
   // Vertical gradient from the liquid surface (offset 0) to the bottom (offset 1).
   stops: { offset: number; color: string }[];
   glow: string;
@@ -9,8 +9,8 @@ export type SphereFill = {
 };
 
 // From this % up the sphere is green; below it, yellow until YELLOW_MIN_PCT; below that, red.
-export const GREEN_MIN_PCT = 40;
-export const YELLOW_MIN_PCT = 20;
+const GREEN_MIN_PCT = 40;
+const YELLOW_MIN_PCT = 20;
 
 const GREEN = { top: '#16a34a', bottom: '#15803d', glow: '#16a34a', light: '#6ee7a0' };
 const YELLOW = { top: '#eab308', bottom: '#ca8a04', glow: '#eab308', light: '#fde68a' };

@@ -4,7 +4,7 @@
 // reaches 07:00 with the reserve without running past the quiet hours; this
 // file only turns that plan into what the screen shows.
 
-export type PlantPlanKind = 'plan' | 'now' | 'urgent' | 'no_time' | 'not_needed' | 'short';
+type PlantPlanKind = 'plan' | 'now' | 'urgent' | 'no_time' | 'not_needed' | 'short';
 
 export type PlantPlan = {
   kind: PlantPlanKind;

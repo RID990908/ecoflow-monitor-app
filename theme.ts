@@ -9,8 +9,6 @@ export const COLORS = {
   faint: '#8593a3',
   green: '#4ade80',
   red: '#f87171',
-  yellow: '#eab308',
-  ringTrack: '#1a222b',
   track: '#26303b',
   nodeBg: '#18202a',
   nodeBorder: '#232c36',
