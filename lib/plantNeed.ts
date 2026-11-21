@@ -30,12 +30,6 @@ export function clockAt(ms: number): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-// 45 -> "45 min"; 185 -> "3h 05m" (long runs read better in hours).
-function duration(minutes: number): string {
-  if (minutes < 120) return `${minutes} min`;
-  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
-}
-
 // Quiet hours start at 22:00 (phone time); the plant plan is anchored to it.
 const QUIET_START_HOUR = 22;
 
@@ -47,10 +41,9 @@ function minutesToQuiet(nowMs: number): number {
   return Math.max(0, (quiet.getTime() - now.getTime()) / 60000);
 }
 
-// The panel between Entrada and Salida; null when there is nothing to say.
-// Before the plant has to start it only says "Ahora" (amber: it can be run any
-// time until 22:00); once the start time is reached it adds the minutes, and
-// goes red when less than an hour is left until 22:00.
+// The indicator between Entrada and Salida; null when there is nothing to say.
+// It only says "Ahora" (the plant has to run): amber while an hour or more is
+// left until 22:00, red below that. `no_time` and `short` show nothing.
 export function plantPill(
   plan: PlantPlan | null | undefined,
   percent: number,
@@ -59,16 +52,11 @@ export function plantPill(
   if (!plan) return null;
   switch (plan.kind) {
     case 'plan':
-      return plan.target_pct != null && percent < plan.target_pct ? { text: 'Ahora', tone: 'amber' } : null;
+      if (plan.target_pct == null || percent >= plan.target_pct) return null;
+      return { text: 'Ahora', tone: minutesToQuiet(nowMs) < 60 ? 'red' : 'amber' };
     case 'now':
     case 'urgent':
-      return plan.minutes != null
-        ? { text: `Ahora · ${duration(plan.minutes)}`, tone: minutesToQuiet(nowMs) < 60 ? 'red' : 'amber' }
-        : null;
-    case 'no_time':
-      return { text: 'No da tiempo', tone: 'red' };
-    case 'short':
-      return { text: 'No alcanza', tone: 'red' };
+      return { text: 'Ahora', tone: minutesToQuiet(nowMs) < 60 ? 'red' : 'amber' };
     case 'not_needed':
       return plan.end_pct != null ? { text: `Sin planta · ${Math.round(plan.end_pct)}%`, tone: 'green' } : null;
     default:
